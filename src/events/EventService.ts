@@ -1,5 +1,13 @@
-import { type Result } from "../lib/result";
-import { type EventError } from "./errors";
+import { Err, Ok, type Result } from "../lib/result";
+import {
+  Forbidden,
+  EventNotFound,
+  ValidationError,
+  UneditableStatus,
+  UnexpectedDependencyError,
+  type EventError,
+} from "./errors";
+import { type IEventRepository } from "./EventRepository";
 import { type IEventRecord } from "./Event";
 
 export interface CreateEventInput {
@@ -91,4 +99,95 @@ function validateEventInput(input: CreateEventInput | UpdateEventInput): Record<
   }
 
   return Object.keys(fields).length > 0 ? fields : null;
+}
+
+class EventService implements IEventService {
+  constructor(private readonly events: IEventRepository) {}
+
+  async createEvent(ctx: SessionContext, input: CreateEventInput): Promise<Result<IEventRecord, EventError>> {
+    if (ctx.role === "member") {
+      return Err(Forbidden("Members cannot create events."));
+    }
+
+    const fields = validateEventInput(input);
+    if (fields) {
+      return Err(ValidationError("Invalid event input.", fields));
+    }
+
+    const now = new Date().toISOString();
+    const event: IEventRecord = {
+      id: crypto.randomUUID(),
+      title: input.title.trim(),
+      description: input.description?.trim() ?? "",
+      location: input.location.trim(),
+      startTime: input.startTime,
+      endTime: input.endTime,
+      status: "draft",
+      organizerId: ctx.userId,
+      createdAt: now,
+      updatedAt: now,
+      capacity: input.capacity ?? null,
+      tags: input.tags ?? [],
+    };
+
+    const result = await this.events.save(event);
+    if (result.ok === false) {
+      return Err(UnexpectedDependencyError(result.value.message));
+    }
+
+    return Ok(result.value);
+  }
+
+  async updateEvent(ctx: SessionContext, eventId: string, input: UpdateEventInput): Promise<Result<IEventRecord, EventError>> {
+    if (ctx.role === "member") {
+      return Err(Forbidden("Members cannot edit events."));
+    }
+
+    const findResult = await this.events.findById(eventId);
+    if (findResult.ok === false) {
+      return Err(UnexpectedDependencyError(findResult.value.message));
+    }
+
+    if (!findResult.value) {
+      return Err(EventNotFound("Event not found."));
+    }
+
+    const event = findResult.value;
+
+    if (ctx.role === "organizer" && event.organizerId !== ctx.userId) {
+      return Err(Forbidden("You do not have permission to edit this event."));
+    }
+
+    if (event.status === "cancelled" || event.status === "concluded") {
+      return Err(UneditableStatus(`Cannot edit an event that is ${event.status}.`));
+    }
+
+    const fields = validateEventInput(input);
+    if (fields) {
+      return Err(ValidationError("Invalid event input.", fields));
+    }
+
+    const updated: IEventRecord = {
+      ...event,
+      title: input.title?.trim() ?? event.title,
+      description: input.description?.trim() ?? event.description,
+      location: input.location?.trim() ?? event.location,
+      startTime: input.startTime ?? event.startTime,
+      endTime: input.endTime ?? event.endTime,
+      capacity: input.capacity !== undefined ? input.capacity : event.capacity,
+      tags: input.tags ?? event.tags,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const saveResult = await this.events.save(updated);
+    if (saveResult.ok === false) {
+      return Err(UnexpectedDependencyError(saveResult.value.message));
+    }
+
+    return Ok(saveResult.value);
+  }
+}
+
+export function CreateEventService(events: IEventRepository): IEventService {
+  return new EventService(events);
 }
