@@ -266,7 +266,7 @@ class ExpressApp implements IApp {
             startTime: typeof req.body.startTime === "string" ? req.body.startTime : "",
             endTime: typeof req.body.endTime === "string" ? req.body.endTime : "",
             capacity: req.body.capacity ? Number(req.body.capacity) : null,
-            tags: typeof req.body.tags === "string" ? req.body.tags.split(",").map((t: string) => t.trim()) : [],
+            tags: typeof req.body.tags === "string" && req.body.tags.trim() !== "" ? req.body.tags.split(",").map((t: string) => t.trim()) : [],
           },
           sessionStore(req),
         );

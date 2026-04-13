@@ -64,20 +64,20 @@ function validateEventInput(input: CreateEventInput | UpdateEventInput): Record<
   }
 
   if ("startTime" in input && input.startTime !== undefined) {
-    const start = new Date(input.startTime);
+    const start = new Date(input.startTime + ":00");
     if (isNaN(start.getTime())) {
       fields.startTime = "Start time must be a valid date.";
-    } else if (start <= new Date()) {
+    } else if (start.getTime() <= Date.now()) {
       fields.startTime = "Start time must be in the future.";
     }
   }
 
   if ("endTime" in input && input.endTime !== undefined) {
-    const end = new Date(input.endTime);
+    const end = new Date(input.endTime + ":00");
     if (isNaN(end.getTime())) {
       fields.endTime = "End time must be a valid date.";
     } else if ("startTime" in input && input.startTime) {
-      const start = new Date(input.startTime);
+      const start = new Date(input.startTime + ":00");
       if (end <= start) {
         fields.endTime = "End time must be after start time.";
       }
@@ -97,7 +97,6 @@ function validateEventInput(input: CreateEventInput | UpdateEventInput): Record<
       fields.tags = "Each tag must be between 1 and 50 characters.";
     }
   }
-
   return Object.keys(fields).length > 0 ? fields : null;
 }
 
@@ -183,6 +182,7 @@ class EventService implements IEventService {
     if (saveResult.ok === false) {
       return Err(UnexpectedDependencyError(saveResult.value.message));
     }
+    
 
     return Ok(saveResult.value);
   }
