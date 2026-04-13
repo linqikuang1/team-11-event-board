@@ -1,0 +1,114 @@
+// Lin
+<section class="mb-5 p-6 border border-slate-200 rounded-2xl bg-gradient-to-b from-white to-slate-50 shadow-lg">
+  <h1 class="text-3xl font-bold text-slate-900 mb-3">Create Event</h1>
+  <p class="text-slate-500">
+    Fill out the form below to create a new event. It will be saved as a draft until you publish it.
+  </p>
+</section>
+
+<% if (pageError) { %>
+  <%- include("../partials/error", { message: pageError }) %>
+<% } %>
+
+<section class="max-w-3xl p-6 border border-slate-200 rounded-2xl bg-white shadow-lg">
+  <div class="mb-4">
+    <h2 class="text-xl font-semibold mb-2">Event Details</h2>
+    <p class="text-slate-500">
+      All fields marked as required must be filled in before submitting.
+    </p>
+  </div>
+
+  <form class="grid gap-2.5" method="post" action="/events/create">
+
+    <label for="title" class="text-sm font-medium">Title <span class="text-red-500">*</span></label>
+    <input
+      id="title"
+      name="title"
+      type="text"
+      required
+      maxlength="200"
+      placeholder="e.g. Annual Tech Meetup"
+      class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500"
+    />
+
+    <label for="description" class="text-sm font-medium">Description</label>
+    <textarea
+      id="description"
+      name="description"
+      rows="4"
+      maxlength="5000"
+      placeholder="What is this event about?"
+      class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500 resize-none"
+    ></textarea>
+
+    <label for="location" class="text-sm font-medium">Location <span class="text-red-500">*</span></label>
+    <input
+      id="location"
+      name="location"
+      type="text"
+      required
+      maxlength="300"
+      placeholder="e.g. Room 204, Building A"
+      class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500"
+    />
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="grid gap-2.5">
+        <label for="startTime" class="text-sm font-medium">Start Time <span class="text-red-500">*</span></label>
+        <input
+          id="startTime"
+          name="startTime"
+          type="datetime-local"
+          required
+          class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500"
+        />
+      </div>
+
+      <div class="grid gap-2.5">
+        <label for="endTime" class="text-sm font-medium">End Time <span class="text-red-500">*</span></label>
+        <input
+          id="endTime"
+          name="endTime"
+          type="datetime-local"
+          required
+          class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500"
+        />
+      </div>
+    </div>
+
+    <label for="capacity" class="text-sm font-medium">Capacity <span class="text-slate-400 font-normal">(optional)</span></label>
+    <input
+      id="capacity"
+      name="capacity"
+      type="number"
+      min="1"
+      placeholder="Leave blank for unlimited"
+      class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500"
+    />
+
+    <label for="tags" class="text-sm font-medium">Tags <span class="text-slate-400 font-normal">(optional, comma-separated)</span></label>
+    <input
+      id="tags"
+      name="tags"
+      type="text"
+      placeholder="e.g. technology, networking, free"
+      class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500"
+    />
+
+    <div class="flex gap-3 mt-1">
+      <button
+        type="submit"
+        class="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium cursor-pointer hover:bg-blue-700"
+      >
+        Create Event
+      </button>
+      
+        href="/home"
+        class="px-4 py-2.5 rounded-lg border border-slate-300 text-slate-600 font-medium hover:bg-slate-50"
+      >
+        Cancel
+      </a>
+    </div>
+
+  </form>
+</section>
