@@ -17,6 +17,7 @@ import {
   touchAppSession,
 } from "./session/AppSession";
 import { ILoggingService } from "./service/LoggingService";
+import type { IEventController } from "./events/EventController";
 
 type AsyncRequestHandler = RequestHandler;
 
@@ -35,6 +36,7 @@ class ExpressApp implements IApp {
 
   constructor(
     private readonly authController: IAuthController,
+    private readonly eventController: IEventController,
     private readonly logger: ILoggingService,
   ) {
     this.app = express();
@@ -237,6 +239,40 @@ class ExpressApp implements IApp {
       }),
     );
 
+    // ── staff routes ───────────────────────────────────────────────── // Lin
+    this.app.get(
+      "/events/create",
+      asyncHandler(async (req, res) => {
+        if (!this.requireRole(req, res, ["staff", "admin"], "Only staff can create events.")) {
+          return;
+        }
+        const browserSession = recordPageView(sessionStore(req));
+        await this.eventController.showCreateForm(res, browserSession);
+      }),
+    );
+    
+    this.app.post(
+      "/events/create",
+      asyncHandler(async (req, res) => {
+        if (!this.requireRole(req, res, ["staff", "admin"], "Only staff can create events.")) {
+          return;
+        }
+        await this.eventController.createFromForm(
+          res,
+          {
+            title: typeof req.body.title === "string" ? req.body.title : "",
+            description: typeof req.body.description === "string" ? req.body.description : "",
+            location: typeof req.body.location === "string" ? req.body.location : "",
+            startTime: typeof req.body.startTime === "string" ? req.body.startTime : "",
+            endTime: typeof req.body.endTime === "string" ? req.body.endTime : "",
+            capacity: req.body.capacity ? Number(req.body.capacity) : null,
+            tags: typeof req.body.tags === "string" ? req.body.tags.split(",").map((t: string) => t.trim()) : [],
+          },
+          sessionStore(req),
+        );
+      }),
+    );
+
     // ── Authenticated home page ──────────────────────────────────────
     // TODO: Replace this placeholder with your project's main page.
 
@@ -272,7 +308,8 @@ class ExpressApp implements IApp {
 
 export function CreateApp(
   authController: IAuthController,
+  eventController: IEventController,
   logger: ILoggingService,
 ): IApp {
-  return new ExpressApp(authController, logger);
+  return new ExpressApp(authController, eventController, logger);
 }

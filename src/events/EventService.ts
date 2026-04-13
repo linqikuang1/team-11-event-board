@@ -32,7 +32,7 @@ export interface UpdateEventInput {
 
 export interface SessionContext {
   userId: string;
-  role: "organizer" | "admin" | "member";
+  role: "admin" | "staff" | "user";
 }
 
 export interface IEventService {
@@ -105,8 +105,8 @@ class EventService implements IEventService {
   constructor(private readonly events: IEventRepository) {}
 
   async createEvent(ctx: SessionContext, input: CreateEventInput): Promise<Result<IEventRecord, EventError>> {
-    if (ctx.role === "member") {
-      return Err(Forbidden("Members cannot create events."));
+    if (ctx.role === "user") {
+      return Err(Forbidden("Only staff and admins can create events."));
     }
 
     const fields = validateEventInput(input);
@@ -139,8 +139,8 @@ class EventService implements IEventService {
   }
 
   async updateEvent(ctx: SessionContext, eventId: string, input: UpdateEventInput): Promise<Result<IEventRecord, EventError>> {
-    if (ctx.role === "member") {
-      return Err(Forbidden("Members cannot edit events."));
+    if (ctx.role === "user") {
+      return Err(Forbidden("Only staff and admins can edit events."));
     }
 
     const findResult = await this.events.findById(eventId);
@@ -154,7 +154,7 @@ class EventService implements IEventService {
 
     const event = findResult.value;
 
-    if (ctx.role === "organizer" && event.organizerId !== ctx.userId) {
+    if (ctx.role === "staff" && event.organizerId !== ctx.userId) {
       return Err(Forbidden("You do not have permission to edit this event."));
     }
 
