@@ -46,7 +46,6 @@ class ExpressApp implements IApp {
   }
 
   private registerMiddleware(): void {
-    // Serve static files from src/static (create this directory to add your own assets)
     this.app.use(express.static(path.join(process.cwd(), "src/static")));
     this.app.use(
       session({
@@ -74,10 +73,6 @@ class ExpressApp implements IApp {
     return req.get("HX-Request") === "true";
   }
 
-  /**
-   * Middleware helper: returns true if the request is from an authenticated user.
-   * If the user is not authenticated, it handles the response (redirect or 401).
-   */
   private requireAuthenticated(req: Request, res: Response): boolean {
     const store = sessionStore(req);
     touchAppSession(store);
@@ -99,11 +94,6 @@ class ExpressApp implements IApp {
     return false;
   }
 
-  /**
-   * Middleware helper: returns true if the authenticated user has one of the
-   * allowed roles. Calls requireAuthenticated first, so unauthenticated
-   * requests are handled automatically.
-   */
   private requireRole(
     req: Request,
     res: Response,
@@ -239,7 +229,8 @@ class ExpressApp implements IApp {
       }),
     );
 
-    // ── staff routes ───────────────────────────────────────────────── // Lin
+    // ── Staff routes ──────────────────────────────────────────────────
+
     this.app.get(
       "/events/create",
       asyncHandler(async (req, res) => {
@@ -250,7 +241,7 @@ class ExpressApp implements IApp {
         await this.eventController.showCreateForm(res, browserSession);
       }),
     );
-    
+
     this.app.post(
       "/events/create",
       asyncHandler(async (req, res) => {
@@ -265,6 +256,42 @@ class ExpressApp implements IApp {
             location: typeof req.body.location === "string" ? req.body.location : "",
             startTime: typeof req.body.startTime === "string" ? req.body.startTime : "",
             endTime: typeof req.body.endTime === "string" ? req.body.endTime : "",
+            capacity: req.body.capacity ? Number(req.body.capacity) : null,
+            tags: typeof req.body.tags === "string" && req.body.tags.trim() !== "" ? req.body.tags.split(",").map((t: string) => t.trim()) : [],
+          },
+          sessionStore(req),
+        );
+      }),
+    );
+
+    this.app.get(
+      "/events/:id/edit",
+      asyncHandler(async (req, res) => {
+        if (!this.requireRole(req, res, ["staff", "admin"], "Only staff can edit events.")) {
+          return;
+        }
+        const browserSession = recordPageView(sessionStore(req));
+        const eventId = typeof req.params.id === "string" ? req.params.id : "";
+        await this.eventController.showEditForm(res, eventId, browserSession);
+      }),
+    );
+
+    this.app.post(
+      "/events/:id/edit",
+      asyncHandler(async (req, res) => {
+        if (!this.requireRole(req, res, ["staff", "admin"], "Only staff can edit events.")) {
+          return;
+        }
+        const eventId = typeof req.params.id === "string" ? req.params.id : "";
+        await this.eventController.updateFromForm(
+          res,
+          eventId,
+          {
+            title: typeof req.body.title === "string" ? req.body.title : undefined,
+            description: typeof req.body.description === "string" ? req.body.description : undefined,
+            location: typeof req.body.location === "string" ? req.body.location : undefined,
+            startTime: typeof req.body.startTime === "string" ? req.body.startTime : undefined,
+            endTime: typeof req.body.endTime === "string" ? req.body.endTime : undefined,
             capacity: req.body.capacity ? Number(req.body.capacity) : null,
             tags: typeof req.body.tags === "string" && req.body.tags.trim() !== "" ? req.body.tags.split(",").map((t: string) => t.trim()) : [],
           },
