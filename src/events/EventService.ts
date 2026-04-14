@@ -37,6 +37,7 @@ export interface SessionContext {
 
 export interface IEventService {
   createEvent(ctx: SessionContext, input: CreateEventInput): Promise<Result<IEventRecord, EventError>>;
+  getEventById(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>>;
   updateEvent(ctx: SessionContext, eventId: string, input: UpdateEventInput): Promise<Result<IEventRecord, EventError>>;
 }
 
@@ -97,6 +98,7 @@ function validateEventInput(input: CreateEventInput | UpdateEventInput): Record<
       fields.tags = "Each tag must be between 1 and 50 characters.";
     }
   }
+
   return Object.keys(fields).length > 0 ? fields : null;
 }
 
@@ -135,6 +137,29 @@ class EventService implements IEventService {
     }
 
     return Ok(result.value);
+  }
+
+  async getEventById(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>> {
+    const findResult = await this.events.findById(eventId);
+    if (findResult.ok === false) {
+      return Err(UnexpectedDependencyError(findResult.value.message));
+    }
+
+    if (!findResult.value) {
+      return Err(EventNotFound("Event not found."));
+    }
+
+    const event = findResult.value;
+
+    if (event.status === "draft" && ctx.role === "user") {
+      return Err(EventNotFound("Event not found."));
+    }
+
+    if (event.status === "draft" && ctx.role === "staff" && event.organizerId !== ctx.userId) {
+      return Err(EventNotFound("Event not found."));
+    }
+
+    return Ok(event);
   }
 
   async updateEvent(ctx: SessionContext, eventId: string, input: UpdateEventInput): Promise<Result<IEventRecord, EventError>> {
@@ -182,7 +207,6 @@ class EventService implements IEventService {
     if (saveResult.ok === false) {
       return Err(UnexpectedDependencyError(saveResult.value.message));
     }
-    
 
     return Ok(saveResult.value);
   }
