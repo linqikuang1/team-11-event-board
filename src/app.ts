@@ -18,6 +18,7 @@ import {
 } from "./session/AppSession";
 import { ILoggingService } from "./service/LoggingService";
 import type { IEventController } from "./events/EventController";
+import type { ICommentController } from "./comments/CommentController";
 
 type AsyncRequestHandler = RequestHandler;
 
@@ -37,6 +38,7 @@ class ExpressApp implements IApp {
   constructor(
     private readonly authController: IAuthController,
     private readonly eventController: IEventController,
+    private readonly commentController: ICommentController,
     private readonly logger: ILoggingService,
   ) {
     this.app = express();
@@ -300,6 +302,34 @@ class ExpressApp implements IApp {
       }),
     );
 
+    // ── Comment routes ──────────────────────────────────────────────
+
+    this.app.post(
+      "/events/:id/comments",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+        const eventId = typeof req.params.id === "string" ? req.params.id : "";
+        const content = typeof req.body.content === "string" ? req.body.content : "";
+        const session = touchAppSession(sessionStore(req));
+        await this.commentController.postComment(res, eventId, content, session);
+      }),
+    );
+
+    this.app.post(
+      "/events/:id/comments/:commentId/delete",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+        const eventId = typeof req.params.id === "string" ? req.params.id : "";
+        const commentId = typeof req.params.commentId === "string" ? req.params.commentId : "";
+        const session = touchAppSession(sessionStore(req));
+        await this.commentController.deleteComment(res, eventId, commentId, session);
+      }),
+    );
+
     // ── Authenticated home page ──────────────────────────────────────
     // TODO: Replace this placeholder with your project's main page.
 
@@ -336,7 +366,8 @@ class ExpressApp implements IApp {
 export function CreateApp(
   authController: IAuthController,
   eventController: IEventController,
+  commentController: ICommentController,
   logger: ILoggingService,
 ): IApp {
-  return new ExpressApp(authController, eventController, logger);
+  return new ExpressApp(authController, eventController, commentController, logger);
 }
