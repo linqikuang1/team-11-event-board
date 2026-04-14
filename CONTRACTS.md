@@ -142,36 +142,47 @@ These rules live in a shared `validateEventInput(input)` helper so Feature 3 can
 
 ## 3. Feature 2 — Event Detail Page
 
-> **Status:** 🔲 Not started — fill in before implementation begins.
-
 ### 3.1 `EventService.getEventById`
+
+**Shared with:** Feature 3 (edit page loads an existing event), Feature 5 (publishing/cancellation may fetch the current event first), Feature 12 (attendee list access depends on event existence/ownership).
 
 #### Signature
 
 ```ts
-// TODO
+getEventById(
+  ctx:     SessionContext,
+  eventId: EventId
+): Promise<Result<Event, GetEventError>>
 ```
 
 #### Parameters
 
 | Parameter | Type | Notes |
 |-----------|------|-------|
-| | | _TODO_ |
+| `ctx` | `SessionContext` | Used to determine whether the caller may view the requested event |
+| `eventId` | `EventId` | The event to retrieve |
 
 #### Successful Result
 
-```
-TODO
+```ts
+{
+  ok:    true,
+  value: Event
+}
 ```
 
 #### Named Errors
 
 ```ts
+
 type GetEventError =
-  // TODO
+| { code: "NOT_FOUND";         message: string }
+| { code: "FORBIDDEN";         message: string }
+| { code: "REPOSITORY_ERROR";  message: string }
 ```
 
 #### Open Questions
+
 
 - [ ] Can members view `"draft"` events, or only `"published"` ones?
 - [ ] What fields are visible to members vs organizers vs admins?
