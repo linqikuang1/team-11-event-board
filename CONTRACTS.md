@@ -457,111 +457,349 @@ type ArchiveEventError =
 
 ## 10. Feature 13 — Event Comments
 
-> **Status:** 🔲 Not started — fill in before implementation begins.
+> **Status:** ✅ Specified
+
+**Shared with:** Feature 2 (comments are displayed on the event detail page), Feature 12 (shared repository contract).
+
+### Shared Types — Comment
+
+```ts
+interface Comment {
+  id:        string;       // UUID v4, assigned by the repository
+  eventId:   EventId;      // the event this comment belongs to
+  userId:    UserId;       // the author, set from session
+  content:   string;       // 1–500 characters
+  createdAt: string;       // ISO-8601, set by repository
+}
+```
 
 ### 10.1 `CommentService.addComment`
 
 #### Signature
 
 ```ts
-// TODO
+addComment(
+  ctx:   SessionContext,
+  input: { eventId: EventId; content: string }
+): Promise<Result<Comment, AddCommentError>>
 ```
 
 #### Parameters
 
 | Parameter | Type | Notes |
 |-----------|------|-------|
-| | | _TODO_ |
+| `ctx` | `SessionContext` | Any authenticated user may comment (`member`, `organizer`, or `admin`) |
+| `input.eventId` | `EventId` | Must reference an existing event with `status === "published"` |
+| `input.content` | `string` | Required; 1–500 characters after trimming |
 
 #### Successful Result
 
+```ts
+{
+  ok:    true,
+  value: Comment   // fully populated Comment with id and createdAt set
+}
 ```
-TODO
-```
+
+The returned comment has:
+- `id` assigned by the repository
+- `userId` set to `ctx.userId` (never from input)
+- `createdAt` set to the current timestamp
 
 #### Named Errors
 
 ```ts
 type AddCommentError =
-  // TODO
+  | { code: "EVENT_NOT_FOUND";   message: string }
+  | { code: "EVENT_NOT_PUBLISHED"; message: string }
+  | { code: "VALIDATION_ERROR"; message: string; fields: Record<string, string> }
+  | { code: "REPOSITORY_ERROR"; message: string }
 ```
+
+| Error code | When it is raised |
+|------------|-------------------|
+| `EVENT_NOT_FOUND` | No event exists for `input.eventId` |
+| `EVENT_NOT_PUBLISHED` | Event exists but `status !== "published"` — comments are only allowed on published events |
+| `VALIDATION_ERROR` | `content` is empty or exceeds 500 characters. `fields` maps `"content"` to the reason. |
+| `REPOSITORY_ERROR` | The underlying store fails to persist the comment |
 
 ### 10.2 `CommentService.deleteComment`
 
 #### Signature
 
 ```ts
-// TODO
-```
-
-#### Named Errors
-
-```ts
-type DeleteCommentError =
-  // TODO
-```
-
-#### Open Questions
-
-- [ ] Which roles can comment — members only, or organizers too?
-- [ ] Can a commenter edit their own comment, or only delete?
-- [ ] Can organizers/admins delete any comment on their event?
-- [ ] Are comments visible on `"draft"` events or only `"published"` ones?
-
----
-
-## 11. Feature 14 — Save for Later
-
-> **Status:** 🔲 Not started — fill in before implementation begins.
-
-### 11.1 `SavedEventService.saveEvent`
-
-#### Signature
-
-```ts
-// TODO
+deleteComment(
+  ctx:       SessionContext,
+  commentId: string,
+  eventId:   EventId
+): Promise<Result<void, DeleteCommentError>>
 ```
 
 #### Parameters
 
 | Parameter | Type | Notes |
 |-----------|------|-------|
-| | | _TODO_ |
+| `ctx` | `SessionContext` | The acting user — permissions are checked against this |
+| `commentId` | `string` | The comment to delete |
+| `eventId` | `EventId` | The event the comment belongs to (used for organizer permission check) |
 
 #### Successful Result
 
-```
-TODO
+```ts
+{
+  ok:    true,
+  value: undefined
+}
 ```
 
 #### Named Errors
 
 ```ts
-type SaveEventError =
-  // TODO
+type DeleteCommentError =
+  | { code: "COMMENT_NOT_FOUND"; message: string }
+  | { code: "FORBIDDEN";         message: string }
+  | { code: "REPOSITORY_ERROR";  message: string }
 ```
 
-### 11.2 `SavedEventService.unsaveEvent`
+| Error code | When it is raised |
+|------------|-------------------|
+| `COMMENT_NOT_FOUND` | No comment exists for `commentId` |
+| `FORBIDDEN` | The acting user is not the comment author, **and** is not the event's organizer, **and** is not an admin |
+| `REPOSITORY_ERROR` | The underlying store fails to delete the comment |
+
+#### Deletion Permission Rules
+
+A comment may be deleted by:
+1. **The comment author** — can always delete their own comment
+2. **The event organizer** — can delete any comment on their event (`event.organizerId === ctx.userId`)
+3. **An admin** — can delete any comment anywhere (`ctx.role === "admin"`)
+
+All other users receive `FORBIDDEN`.
+
+### 10.3 `CommentService.listComments`
+
+**Shared with:** Feature 2 (event detail page displays the comment list).
 
 #### Signature
 
 ```ts
-// TODO
+listComments(
+  ctx:     SessionContext,
+  eventId: EventId
+): Promise<Result<Comment[], ListCommentsError>>
+```
+
+#### Parameters
+
+| Parameter | Type | Notes |
+|-----------|------|-------|
+| `ctx` | `SessionContext` | Any authenticated user |
+| `eventId` | `EventId` | The event whose comments to retrieve |
+
+#### Successful Result
+
+```ts
+{
+  ok:    true,
+  value: Comment[]   // sorted by createdAt ascending (oldest first)
+}
 ```
 
 #### Named Errors
 
 ```ts
-type UnsaveEventError =
-  // TODO
+type ListCommentsError =
+  | { code: "EVENT_NOT_FOUND";  message: string }
+  | { code: "REPOSITORY_ERROR"; message: string }
 ```
 
-#### Open Questions
+| Error code | When it is raised |
+|------------|-------------------|
+| `EVENT_NOT_FOUND` | No event exists for `eventId` |
+| `REPOSITORY_ERROR` | The underlying store fails to read |
 
-- [ ] Which roles can save events — members only, or all roles?
-- [ ] Should saving a cancelled or concluded event be allowed?
-- [ ] Is there a limit on how many events a user can save?
-- [ ] Should saved events appear in a dedicated "saved" list view?
+### 10.4 Comment Repository Contract
+
+```ts
+interface CommentRepository {
+  save(comment: Comment): Promise<Comment>;
+  findById(id: string): Promise<Comment | null>;
+  findByEventId(eventId: EventId): Promise<Comment[]>;
+  delete(id: string): Promise<void>;
+}
+```
+
+| Method | Notes |
+|--------|-------|
+| `save` | Insert only (comments are not editable). Sets `id` and `createdAt`. |
+| `findById` | Returns `null` when the comment does not exist. |
+| `findByEventId` | Returns all comments for the event, sorted by `createdAt` ascending. Returns `[]` if none. |
+| `delete` | Silent no-op if `id` does not exist. |
+
+---
+
+## 11. Feature 14 — Save for Later
+
+> **Status:** ✅ Specified
+
+**Shared with:** Feature 2 (save button appears on the event detail page), Feature 12 (shared repository contract).
+
+### Shared Types — SavedEvent
+
+```ts
+interface SavedEvent {
+  id:      string;       // UUID v4, assigned by the repository
+  eventId: EventId;      // the bookmarked event
+  userId:  UserId;       // the member who saved it, set from session
+  savedAt: string;       // ISO-8601, set by repository
+}
+```
+
+### 11.1 `SavedEventService.toggleSave`
+
+The feature uses a single **toggle** action rather than separate save/unsave methods. Calling it once saves the event; calling it again unsaves it. This prevents duplicate records.
+
+#### Signature
+
+```ts
+toggleSave(
+  ctx:     SessionContext,
+  eventId: EventId
+): Promise<Result<{ saved: boolean }, ToggleSaveError>>
+```
+
+#### Parameters
+
+| Parameter | Type | Notes |
+|-----------|------|-------|
+| `ctx` | `SessionContext` | Must have `role === "member"`. Organizers and admins are rejected. |
+| `eventId` | `EventId` | The event to save or unsave |
+
+#### Successful Result
+
+```ts
+{
+  ok:    true,
+  value: { saved: true }    // event is now saved
+}
+// or
+{
+  ok:    true,
+  value: { saved: false }   // event is now unsaved
+}
+```
+
+#### Named Errors
+
+```ts
+type ToggleSaveError =
+  | { code: "FORBIDDEN";          message: string }
+  | { code: "EVENT_NOT_FOUND";    message: string }
+  | { code: "EVENT_NOT_SAVEABLE"; message: string; status: EventStatus }
+  | { code: "REPOSITORY_ERROR";   message: string }
+```
+
+| Error code | When it is raised |
+|------------|-------------------|
+| `FORBIDDEN` | `ctx.role !== "member"` — only members can save events; organizers and admins are rejected |
+| `EVENT_NOT_FOUND` | No event exists for `eventId` |
+| `EVENT_NOT_SAVEABLE` | Event exists but `status === "cancelled"` or `status === "concluded"`. The `status` field echoes back the current status. |
+| `REPOSITORY_ERROR` | The underlying store fails |
+
+#### Toggle Logic
+
+1. Look up whether a `SavedEvent` record exists for `(ctx.userId, eventId)`.
+2. If **no record exists** → create one → return `{ saved: true }`.
+3. If **a record exists** → delete it → return `{ saved: false }`.
+
+### 11.2 `SavedEventService.listSavedEvents`
+
+#### Signature
+
+```ts
+listSavedEvents(
+  ctx: SessionContext
+): Promise<Result<SavedEventWithDetails[], ListSavedEventsError>>
+```
+
+#### Parameters
+
+| Parameter | Type | Notes |
+|-----------|------|-------|
+| `ctx` | `SessionContext` | Must have `role === "member"` |
+
+#### Shared Types — SavedEventWithDetails
+
+```ts
+interface SavedEventWithDetails {
+  savedEvent: SavedEvent;
+  event:      Event;         // the full event object joined from the event repository
+}
+```
+
+#### Successful Result
+
+```ts
+{
+  ok:    true,
+  value: SavedEventWithDetails[]   // sorted by savedAt descending (most recently saved first)
+}
+```
+
+Returns an empty array if the member has no saved events.
+
+#### Named Errors
+
+```ts
+type ListSavedEventsError =
+  | { code: "FORBIDDEN";        message: string }
+  | { code: "REPOSITORY_ERROR"; message: string }
+```
+
+| Error code | When it is raised |
+|------------|-------------------|
+| `FORBIDDEN` | `ctx.role !== "member"` |
+| `REPOSITORY_ERROR` | The underlying store fails to read |
+
+### 11.3 `SavedEventService.isEventSaved`
+
+A convenience method used by the event detail page (Feature 2) to determine the save button state.
+
+#### Signature
+
+```ts
+isEventSaved(
+  ctx:     SessionContext,
+  eventId: EventId
+): Promise<Result<boolean, RepositoryError>>
+```
+
+#### Successful Result
+
+```ts
+{
+  ok:    true,
+  value: true    // or false
+}
+```
+
+### 11.4 Saved Event Repository Contract
+
+```ts
+interface SavedEventRepository {
+  save(savedEvent: SavedEvent): Promise<SavedEvent>;
+  findByUserAndEvent(userId: UserId, eventId: EventId): Promise<SavedEvent | null>;
+  findByUserId(userId: UserId): Promise<SavedEvent[]>;
+  delete(id: string): Promise<void>;
+}
+```
+
+| Method | Notes |
+|--------|-------|
+| `save` | Insert only. Sets `id` and `savedAt`. |
+| `findByUserAndEvent` | Returns `null` when no saved record exists for the pair. Used by toggle logic. |
+| `findByUserId` | Returns all saved events for the user, sorted by `savedAt` descending. Returns `[]` if none. |
+| `delete` | Silent no-op if `id` does not exist. |
 
 ---
 
@@ -594,3 +832,4 @@ interface EventRepository {
 | Date | Author | Change |
 |------|--------|--------|
 | _(fill in)_ | _(team)_ | Initial draft — Features 1 & 3 fully specified; Features 2, 4, 5, 6, 10, 11, 13, 14 templated |
+| 2026-04-09 | Yufeng Hao | Features 13 & 14 fully specified — Comment and SavedEvent types, all service methods, repository contracts |
