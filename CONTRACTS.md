@@ -384,27 +384,38 @@ type FilterEventsError =
 #### Signature
 
 ```ts
-// TODO
+searchEvents(
+  ctx: SessionContext,
+  query: string
+): Promise<Result<IEventRecord[], SearchEventsError>>
 ```
 
 #### Parameters
 
 | Parameter | Type | Notes |
 |-----------|------|-------|
-| | | _TODO_ |
+| `ctx` | `SessionContext` | The acting user (authenticated) |
+| `query` | `string` | Search input. Empty or whitespace-only input returns all published upcoming events | 
 
 #### Successful Result
 
-```
-TODO
+```ts
+{
+  ok: true,
+  value: IEventRecord[]
+}
 ```
 
 #### Named Errors
 
 ```ts
 type SearchEventsError =
-  // TODO
+  | { code: "INVALID_SEARCH_INPUT"; message: string }
+  | { code: "REPOSITORY_ERROR"; message: string }
 ```
+
+| `INVALID_SEARCH_INPUT` | The query is invalid under the agreed search rules |
+| `REPOSITORY_ERROR` | The underlying store fails while retrieving events | 
 
 #### Open Questions
 
