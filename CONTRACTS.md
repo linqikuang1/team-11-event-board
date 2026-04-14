@@ -241,26 +241,30 @@ An event is editable **only** when `status === "draft"` or `status === "publishe
 
 ## 5. Feature 4 — RSVP Toggle
 
-> **Status:** 🔲 Not started — fill in before implementation begins.
+> **Status:** ✅ Mostly Implemented for Sprint 1
 
-### 5.1 `RsvpService.toggleRsvp`
+### 5.1 `EventService.toggleRsvp`
 
 #### Signature
 
 ```ts
-// TODO
-```
+toggleRsvp(
+  ctx: SessionContext,
+  eventId: string,
+): Promise<Result<ToggleRsvpResult, EventError>>
 
 #### Parameters
 
 | Parameter | Type | Notes |
 |-----------|------|-------|
-| | | _TODO_ |
+| ctx | SessionContext | Authenticated caller. Role must be a 'user', as staff and admins are rejected for this purpose. |
+| eventId | string | UUID of the target event happening.
 
 #### Successful Result
 
 ```
-TODO
+Returns Ok<ToggleRsvpResult>. The outcome field communicates which of the
+three cases was applied:
 ```
 
 #### Named Errors
@@ -281,7 +285,7 @@ type RsvpToggleError =
 
 ## 6. Feature 5 — Event Publishing and Cancellation
 
-> **Status:** 🔲 Not started — fill in before implementation begins.
+> **Status:** ✅ Mostly Implemented for Sprint 1
 
 ### 6.1 `EventService.publishEvent`
 

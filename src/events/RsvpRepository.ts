@@ -13,7 +13,7 @@ export interface IRsvpRecord {
 
 export interface IRsvpRepository {
   /**
-   * Upsert an RSVP record. If one already exists for (eventId, userId), it is
+   * Method that upserts an RSVP record. If one already exists for (eventId, userId) entry, it is
    * replaced wholesale; otherwise a new record is inserted.
    */
   save(rsvp: IRsvpRecord): Promise<Result<IRsvpRecord, EventError>>;
