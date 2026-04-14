@@ -304,6 +304,18 @@ class ExpressApp implements IApp {
 
     // ── Comment routes ──────────────────────────────────────────────
 
+    this.app.get(
+      "/events/:id/comments",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+        const eventId = typeof req.params.id === "string" ? req.params.id : "";
+        const session = recordPageView(sessionStore(req));
+        await this.commentController.showComments(res, eventId, session);
+      }),
+    );
+
     this.app.post(
       "/events/:id/comments",
       asyncHandler(async (req, res) => {
