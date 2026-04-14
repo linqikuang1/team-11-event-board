@@ -46,7 +46,6 @@ class ExpressApp implements IApp {
   }
 
   private registerMiddleware(): void {
-    // Serve static files from src/static (create this directory to add your own assets)
     this.app.use(express.static(path.join(process.cwd(), "src/static")));
     this.app.use(
       session({
@@ -74,10 +73,6 @@ class ExpressApp implements IApp {
     return req.get("HX-Request") === "true";
   }
 
-  /**
-   * Middleware helper: returns true if the request is from an authenticated user.
-   * If the user is not authenticated, it handles the response (redirect or 401).
-   */
   private requireAuthenticated(req: Request, res: Response): boolean {
     const store = sessionStore(req);
     touchAppSession(store);
@@ -99,11 +94,6 @@ class ExpressApp implements IApp {
     return false;
   }
 
-  /**
-   * Middleware helper: returns true if the authenticated user has one of the
-   * allowed roles. Calls requireAuthenticated first, so unauthenticated
-   * requests are handled automatically.
-   */
   private requireRole(
     req: Request,
     res: Response,
@@ -160,8 +150,14 @@ class ExpressApp implements IApp {
       "/login",
       asyncHandler(async (req, res) => {
         const email = typeof req.body.email === "string" ? req.body.email : "";
-        const password = typeof req.body.password === "string" ? req.body.password : "";
-        await this.authController.loginFromForm(res, email, password, sessionStore(req));
+        const password =
+          typeof req.body.password === "string" ? req.body.password : "";
+        await this.authController.loginFromForm(
+          res,
+          email,
+          password,
+          sessionStore(req),
+        );
       }),
     );
 
@@ -180,7 +176,6 @@ class ExpressApp implements IApp {
         if (!this.requireRole(req, res, ["admin"], "Only Admin can manage users.")) {
           return;
         }
-
         const browserSession = recordPageView(sessionStore(req));
         await this.authController.showAdminUsers(res, browserSession);
       }),
@@ -193,7 +188,8 @@ class ExpressApp implements IApp {
           return;
         }
 
-        const roleValue = typeof req.body.role === "string" ? req.body.role : "user";
+        const roleValue =
+          typeof req.body.role === "string" ? req.body.role : "user";
         const role: UserRole =
           roleValue === "admin" || roleValue === "staff" || roleValue === "user"
             ? roleValue
@@ -205,7 +201,8 @@ class ExpressApp implements IApp {
             email: typeof req.body.email === "string" ? req.body.email : "",
             displayName:
               typeof req.body.displayName === "string" ? req.body.displayName : "",
-            password: typeof req.body.password === "string" ? req.body.password : "",
+            password:
+              typeof req.body.password === "string" ? req.body.password : "",
             role,
           },
           touchAppSession(sessionStore(req)),
@@ -239,42 +236,143 @@ class ExpressApp implements IApp {
       }),
     );
 
-    // ── staff routes ───────────────────────────────────────────────── // Lin
+    // ── Staff routes ──────────────────────────────────────────────────
+
     this.app.get(
       "/events/create",
       asyncHandler(async (req, res) => {
-        if (!this.requireRole(req, res, ["staff", "admin"], "Only staff can create events.")) {
+        if (
+          !this.requireRole(
+            req,
+            res,
+            ["staff", "admin"],
+            "Only staff can create events.",
+          )
+        ) {
           return;
         }
         const browserSession = recordPageView(sessionStore(req));
         await this.eventController.showCreateForm(res, browserSession);
       }),
     );
-    
+
     this.app.post(
       "/events/create",
       asyncHandler(async (req, res) => {
-        if (!this.requireRole(req, res, ["staff", "admin"], "Only staff can create events.")) {
+        if (
+          !this.requireRole(
+            req,
+            res,
+            ["staff", "admin"],
+            "Only staff can create events.",
+          )
+        ) {
           return;
         }
         await this.eventController.createFromForm(
           res,
           {
             title: typeof req.body.title === "string" ? req.body.title : "",
-            description: typeof req.body.description === "string" ? req.body.description : "",
-            location: typeof req.body.location === "string" ? req.body.location : "",
-            startTime: typeof req.body.startTime === "string" ? req.body.startTime : "",
-            endTime: typeof req.body.endTime === "string" ? req.body.endTime : "",
+            description:
+              typeof req.body.description === "string"
+                ? req.body.description
+                : "",
+            location:
+              typeof req.body.location === "string" ? req.body.location : "",
+            startTime:
+              typeof req.body.startTime === "string" ? req.body.startTime : "",
+            endTime:
+              typeof req.body.endTime === "string" ? req.body.endTime : "",
             capacity: req.body.capacity ? Number(req.body.capacity) : null,
-            tags: typeof req.body.tags === "string" && req.body.tags.trim() !== "" ? req.body.tags.split(",").map((t: string) => t.trim()) : [],
+            tags:
+              typeof req.body.tags === "string" &&
+              req.body.tags.trim() !== ""
+                ? req.body.tags.split(",").map((t: string) => t.trim())
+                : [],
           },
           sessionStore(req),
         );
       }),
     );
 
-    // ── Authenticated home page ──────────────────────────────────────
-    // TODO: Replace this placeholder with your project's main page.
+    // ── Feature 4: RSVP toggle ────────────────────────────────────────
+    //
+    // POST /events/:id/rsvp
+    //
+    // Any authenticated user may hit this. The service layer enforces that
+    // only members (role === "user") may RSVP; staff and admins are rejected
+    // with 403. The route itself only requires authentication so the 403
+    // message comes from the service and is rendered consistently via the
+    // partials/error partial.
+
+    this.app.post(
+      "/events/:id/rsvp",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+        const eventId =
+          typeof req.params.id === "string" ? req.params.id : "";
+        await this.eventController.toggleRsvp(res, eventId, sessionStore(req));
+      }),
+    );
+
+    // ── Feature 5: Event lifecycle ────────────────────────────────────
+    //
+    // POST /events/:id/publish  — draft → published
+    // POST /events/:id/cancel   — published → cancelled
+    //
+    // Role gate is intentionally loose here (staff OR admin) because the
+    // service layer enforces ownership: a staff member may only transition
+    // their own events, while admins may act on any event.
+
+    this.app.post(
+      "/events/:id/publish",
+      asyncHandler(async (req, res) => {
+        if (
+          !this.requireRole(
+            req,
+            res,
+            ["staff", "admin"],
+            "Only organizers and admins can publish events.",
+          )
+        ) {
+          return;
+        }
+        const eventId =
+          typeof req.params.id === "string" ? req.params.id : "";
+        await this.eventController.publishEvent(
+          res,
+          eventId,
+          sessionStore(req),
+        );
+      }),
+    );
+
+    this.app.post(
+      "/events/:id/cancel",
+      asyncHandler(async (req, res) => {
+        if (
+          !this.requireRole(
+            req,
+            res,
+            ["staff", "admin"],
+            "Only organizers and admins can cancel events.",
+          )
+        ) {
+          return;
+        }
+        const eventId =
+          typeof req.params.id === "string" ? req.params.id : "";
+        await this.eventController.cancelEvent(
+          res,
+          eventId,
+          sessionStore(req),
+        );
+      }),
+    );
+
+    // ── Authenticated home page ───────────────────────────────────────
 
     this.app.get(
       "/home",
@@ -282,23 +380,25 @@ class ExpressApp implements IApp {
         if (!this.requireAuthenticated(req, res)) {
           return;
         }
-
         const browserSession = recordPageView(sessionStore(req));
         this.logger.info(`GET /home for ${browserSession.browserLabel}`);
         res.render("home", { session: browserSession, pageError: null });
       }),
     );
 
-    // ── Error handler ────────────────────────────────────────────────
+    // ── Error handler ─────────────────────────────────────────────────
 
-    this.app.use((err: unknown, _req: Request, res: Response, _next: (value?: unknown) => void) => {
-      const message = err instanceof Error ? err.message : "Unexpected server error.";
-      this.logger.error(message);
-      res.status(500).render("partials/error", {
-        message: "Unexpected server error.",
-        layout: false,
-      });
-    });
+    this.app.use(
+      (err: unknown, _req: Request, res: Response, _next: (value?: unknown) => void) => {
+        const message =
+          err instanceof Error ? err.message : "Unexpected server error.";
+        this.logger.error(message);
+        res.status(500).render("partials/error", {
+          message: "Unexpected server error.",
+          layout: false,
+        });
+      },
+    );
   }
 
   getExpressApp(): express.Express {
