@@ -6,6 +6,13 @@ import type { SessionContext } from "../events/EventService";
 import type { CommentError } from "./errors";
 
 export interface ICommentController {
+  showComments(
+    res: Response,
+    eventId: string,
+    session: IAppBrowserSession,
+    pageError?: string | null,
+  ): Promise<void>;
+
   postComment(
     res: Response,
     eventId: string,
@@ -26,6 +33,49 @@ class CommentController implements ICommentController {
     private readonly service: ICommentService,
     private readonly logger: ILoggingService,
   ) {}
+
+  async showComments(
+    res: Response,
+    eventId: string,
+    session: IAppBrowserSession,
+    pageError: string | null = null,
+  ): Promise<void> {
+    const user = session.authenticatedUser;
+
+    if (!user) {
+      res.status(401).render("partials/error", {
+        message: "Please log in to continue.",
+        layout: false,
+      });
+      return;
+    }
+
+    const ctx: SessionContext = {
+      userId: user.userId,
+      role: user.role as SessionContext["role"],
+    };
+
+    const result = await this.service.listComments(ctx, eventId);
+
+    if (result.ok === false) {
+      const error = result.value;
+      const status = this.mapErrorStatus(error);
+      this.logger.warn(`List comments failed: ${error.message}`);
+      res.status(status).render("partials/error", {
+        message: error.message,
+        layout: false,
+      });
+      return;
+    }
+
+    res.render("comments/list", {
+      pageError,
+      session,
+      eventId,
+      comments: result.value,
+      currentUserId: user.userId,
+    });
+  }
 
   private mapErrorStatus(error: CommentError): number {
     if (error.name === "ValidationError") return 400;
@@ -72,7 +122,7 @@ class CommentController implements ICommentController {
     }
 
     this.logger.info(`Comment ${result.value.id} posted on event ${eventId}`);
-    res.redirect(`/events/${eventId}`);
+    res.redirect(`/events/${eventId}/comments`);
   }
 
   async deleteComment(
@@ -111,7 +161,7 @@ class CommentController implements ICommentController {
     }
 
     this.logger.info(`Comment ${commentId} deleted from event ${eventId}`);
-    res.redirect(`/events/${eventId}`);
+    res.redirect(`/events/${eventId}/comments`);
   }
 }
 
