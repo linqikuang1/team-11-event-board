@@ -395,27 +395,41 @@ type FilterEventsError =
 #### Signature
 
 ```ts
-// TODO
+searchEvents(
+  ctx: SessionContext,
+  query: string
+): Promise<Result<IEventRecord[], SearchEventsError>>
 ```
 
 #### Parameters
 
 | Parameter | Type | Notes |
 |-----------|------|-------|
-| | | _TODO_ |
+| `ctx` | `SessionContext` | The acting user (authenticated) |
+| `query` | `string` | Search input. Empty or whitespace-only input returns all published upcoming events | 
 
 #### Successful Result
 
-```
-TODO
+```ts
+{
+  ok: true,
+  value: IEventRecord[]
+}
 ```
 
 #### Named Errors
 
 ```ts
 type SearchEventsError =
-  // TODO
+  | { code: "INVALID_SEARCH_INPUT"; message: string }
+  | { code: "REPOSITORY_ERROR"; message: string }
 ```
+
+| `INVALID_SEARCH_INPUT` | The query is invalid under the agreed search rules |
+| `REPOSITORY_ERROR` | The underlying store fails while retrieving events | 
+
+-status === `published`
+-still upcoming (their `endTime` has not passed)
 
 #### Open Questions
 
@@ -435,27 +449,44 @@ type SearchEventsError =
 #### Signature
 
 ```ts
-// TODO
+archiveEvent(
+  ctx: SessionContext,
+  eventId: string
+): Promise<Result<IEventRecord, ArchiveEventError>>
 ```
 
 #### Parameters
 
 | Parameter | Type | Notes |
 |-----------|------|-------|
-| | | _TODO_ |
+| `ctx` | `SessionContext` | The acting user |
+| `eventID` | `string` | The id of the event being archived | 
 
 #### Successful Result
 
-```
-TODO
+```ts
+{
+  ok: true,
+  value: IEventRecord  
+}
 ```
 
 #### Named Errors
 
 ```ts
 type ArchiveEventError =
-  // TODO
+  | { code: "FORBIDDEN"; message: string }
+  | { code: "NOT_FOUND"; message: string }
+  | { code: "UNARCHIVABLE_STATUS"; message: string; status: EventStatus }
+  | { code: "REPOSITORY_ERROR"; message: string }
 ```
+
+
+| `FORBIDDEN` | `ctx.role === "member"`, or the acting user is not allowed to archive the target event | 
+| `NOT_FOUND` | No event exists for `eventId` |
+| `UNARCHIVABLE_STATUS` | The event is already in a non-archivable status. The `status` field echoes the current status | 
+| `REPOSITORY_ERROR` | The underlying store fails to persist the archive update | 
+
 
 #### Open Questions
 
