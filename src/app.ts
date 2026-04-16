@@ -322,11 +322,41 @@ class ExpressApp implements IApp {
         }
 
         const browserSession = recordPageView(sessionStore(req));
-        const tag = typeof req.query.tag === "string" ? req.query.tag : "";
-        const timeframe =
+        const category =
+          typeof req.query.category === "string" ? req.query.category : "";
+        const timeframeRaw =
           typeof req.query.timeframe === "string" ? req.query.timeframe : "upcoming";
+        const timeframe =
+          timeframeRaw === "week" || timeframeRaw === "weekend" || timeframeRaw === "upcoming"
+            ? timeframeRaw
+            : "upcoming";
+
         await this.eventController.showEventsPage(res, browserSession, {
-          tag,
+          category,
+          timeframe,
+        });
+      }),
+    );
+
+    this.app.get(
+      "/events/filter",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+
+        const browserSession = recordPageView(sessionStore(req));
+        const category =
+          typeof req.query.category === "string" ? req.query.category : "";
+        const timeframeRaw =
+          typeof req.query.timeframe === "string" ? req.query.timeframe : "upcoming";
+        const timeframe =
+          timeframeRaw === "week" || timeframeRaw === "weekend" || timeframeRaw === "upcoming"
+            ? timeframeRaw
+            : "upcoming";
+
+        await this.eventController.filterEventsPartial(res, browserSession, {
+          category,
           timeframe,
         });
       }),

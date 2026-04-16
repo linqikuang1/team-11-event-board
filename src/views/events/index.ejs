@@ -3,33 +3,53 @@
   <form
     method="get"
     action="/events"
-    hx-get="/events"
+    hx-get="/events/filter"
+    hx-trigger="change from:select, input changed delay:400ms from:input[name='category']"
     hx-target="#event-list"
     hx-swap="innerHTML"
     hx-push-url="true"
-    class="grid gap-3 md:grid-cols-3"
+    class="mb-4 grid gap-3 sm:grid-cols-2"
   >
-    <input
-      type="text"
-      name="tag"
-      value="<%= tag %>"
-      placeholder="Filter by category tag (e.g. tech)"
-      class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500"
-    />
-    <select
-      name="timeframe"
-      class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500"
-    >
-      <option value="upcoming" <%= timeframe === "upcoming" ? "selected" : "" %>>All upcoming</option>
-      <option value="week" <%= timeframe === "week" ? "selected" : "" %>>This week</option>
-      <option value="weekend" <%= timeframe === "weekend" ? "selected" : "" %>>This weekend</option>
-    </select>
+    <label class="flex flex-col gap-1 text-sm font-medium text-slate-700">
+      Category
+      <input
+        type="text"
+        name="category"
+        value="<%= category %>"
+        placeholder="e.g. sports, music, workshop"
+        class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500"
+      />
+    </label>
+    <label class="flex flex-col gap-1 text-sm font-medium text-slate-700">
+      Timeframe
+      <select
+        name="timeframe"
+        class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500"
+      >
+        <option value="upcoming" <%= timeframe === "upcoming" ? "selected" : "" %>>All upcoming</option>
+        <option value="week" <%= timeframe === "week" ? "selected" : "" %>>This week</option>
+        <option value="weekend" <%= timeframe === "weekend" ? "selected" : "" %>>This weekend</option>
+      </select>
+    </label>
     <button
       type="submit"
-      class="px-4 py-2.5 rounded-xl bg-slate-900 text-white font-medium hover:bg-slate-700 transition-colors"
+      class="sm:col-span-2 w-fit px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700"
     >
       Apply filters
     </button>
+  </form>
+  <form>
+    <input
+      type="search"
+      name="q"
+      value="<%= query %>"
+      placeholder="Search by title, description, or location"
+      hx-get="/events/search"
+      hx-trigger="input changed delay:400ms, search"
+      hx-target="#event-list"
+      hx-swap="innerHTML"
+      class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500"
+    />
   </form>
 </section>
 

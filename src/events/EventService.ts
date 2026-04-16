@@ -13,7 +13,7 @@ import { type IEventRecord } from "./Event";
 
 
 export interface FilterEventsInput {
-  tag?: string;
+  category?: string;
   timeframe?: "upcoming" | "week" | "weekend";
 }
 
@@ -116,26 +116,6 @@ function validateEventInput(input: CreateEventInput | UpdateEventInput): Record<
 
 class EventService implements IEventService {
   constructor(private readonly events: IEventRepository) {}
-
-  private getWeekendRange(from: Date): { start: number; end: number } {
-    const base = new Date(from);
-    base.setHours(0, 0, 0, 0);
-
-    const currentDay = base.getDay();
-    const daysUntilSaturday = (6 - currentDay + 7) % 7;
-
-    const saturday = new Date(base);
-    saturday.setDate(base.getDate() + daysUntilSaturday);
-
-    const sundayEnd = new Date(saturday);
-    sundayEnd.setDate(saturday.getDate() + 1);
-    sundayEnd.setHours(23, 59, 59, 999);
-
-    return {
-      start: saturday.getTime(),
-      end: sundayEnd.getTime(),
-    };
-  }
 
   async createEvent(ctx: SessionContext, input: CreateEventInput): Promise<Result<IEventRecord, EventError>> {
     if (ctx.role === "user") {
@@ -337,10 +317,14 @@ class EventService implements IEventService {
       return Err(UnexpectedDependencyError(allResult.value.message));
     }
 
-    const normalizedTag = filters.tag?.trim().toLowerCase() ?? "";
+    const normalizedCategory = filters.category?.trim().toLowerCase() ?? "";
     const normalizedTimeframe = filters.timeframe?.trim().toLowerCase() ?? "upcoming";
-    const validTimeframes = new Set(["upcoming", "week", "weekend"]);
-    if (!validTimeframes.has(normalizedTimeframe)) {
+
+    if (
+      normalizedTimeframe !== "upcoming" &&
+      normalizedTimeframe !== "week" &&
+      normalizedTimeframe !== "weekend"
+    ) {
       return Err(
         ValidationError("Invalid filter input.", {
           timeframe: "Timeframe must be one of: upcoming, week, weekend.",
@@ -356,26 +340,42 @@ class EventService implements IEventService {
       return isPublished && isUpcoming;
     });
 
-    if (normalizedTag.length > 0) {
+    if (normalizedCategory.length > 0) {
       results = results.filter((event) =>
-        event.tags.some((tag) => tag.toLowerCase() === normalizedTag),
+        event.tags.some((tag) => tag.toLowerCase() === normalizedCategory),
       );
     }
 
-    if (normalizedTimeframe === "week") {
-      const weekEnd = now + 7 * 24 * 60 * 60 * 1000;
-      results = results.filter((event) => {
-        const start = new Date(event.startTime).getTime();
-        return start >= now && start <= weekEnd;
-      });
-    }
+    if (normalizedTimeframe !== "upcoming") {
+      const nowDate = new Date();
+      const startOfToday = new Date(
+        nowDate.getFullYear(),
+        nowDate.getMonth(),
+        nowDate.getDate(),
+      );
 
-    if (normalizedTimeframe === "weekend") {
-      const { start, end } = this.getWeekendRange(new Date(now));
-      results = results.filter((event) => {
-        const eventStart = new Date(event.startTime).getTime();
-        return eventStart >= start && eventStart <= end;
-      });
+      if (normalizedTimeframe === "week") {
+        const endOfWindow = new Date(startOfToday);
+        endOfWindow.setDate(startOfToday.getDate() + 7);
+
+        results = results.filter((event) => {
+          const eventStart = new Date(event.startTime).getTime();
+          return eventStart >= now && eventStart < endOfWindow.getTime();
+        });
+      } else {
+        const dayOfWeek = startOfToday.getDay(); // 0 = Sun ... 6 = Sat
+        const saturday = new Date(startOfToday);
+        saturday.setDate(startOfToday.getDate() + ((6 - dayOfWeek + 7) % 7));
+        const mondayAfterWeekend = new Date(saturday);
+        mondayAfterWeekend.setDate(saturday.getDate() + 2);
+
+        results = results.filter((event) => {
+          const eventStart = new Date(event.startTime).getTime();
+          return (
+            eventStart >= saturday.getTime() && eventStart < mondayAfterWeekend.getTime()
+          );
+        });
+      }
     }
 
     results.sort(

@@ -12,6 +12,7 @@ export interface IEventController {
   showEditForm(res: Response, eventId: string, session: IAppBrowserSession, pageError?: string | null): Promise<void>;
   updateFromForm(res: Response, eventId: string, input: UpdateEventInput, store: AppSessionStore): Promise<void>;
   showEventsPage(res: Response, session: IAppBrowserSession, filters?: FilterEventsInput): Promise<void>;
+  filterEventsPartial(res: Response, session: IAppBrowserSession, filters?: FilterEventsInput): Promise<void>;
   searchEventsPartial(res: Response, query: string, store: AppSessionStore): Promise<void>;
   publishEvent(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
   cancelEvent(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
@@ -196,7 +197,7 @@ class EventController implements IEventController {
   }
 
   const safeFilters = {
-    tag: filters.tag ?? "",
+    category: filters.category ?? "",
     timeframe: filters.timeframe ?? "upcoming",
   };
 
@@ -211,7 +212,7 @@ class EventController implements IEventController {
     res.status(status).render("events/index", {
       session,
       query: "",
-      tag: safeFilters.tag,
+      category: safeFilters.category,
       timeframe: safeFilters.timeframe,
       events: [],
       pageError: error.message,
@@ -222,12 +223,52 @@ class EventController implements IEventController {
   res.render("events/index", {
     session,
     query: "",
-    tag: safeFilters.tag,
+    category: safeFilters.category,
     timeframe: safeFilters.timeframe,
     events: result.value,
     pageError: null,
   });
 }
+
+  async filterEventsPartial(
+    res: Response,
+    session: IAppBrowserSession,
+    filters: FilterEventsInput = {},
+  ): Promise<void> {
+    const ctx = this.buildSessionContext(session);
+
+    if (!ctx) {
+      res.status(401).render("partials/error", {
+        message: "Please log in to continue.",
+        layout: false,
+      });
+      return;
+    }
+
+    const safeFilters = {
+      category: filters.category ?? "",
+      timeframe: filters.timeframe ?? "upcoming",
+    };
+
+    const result = await this.service.filterEvents(ctx, safeFilters);
+    if (result.ok === false) {
+      const error = result.value;
+      const status = this.mapErrorStatus(error);
+      const log = status >= 500 ? this.logger.error : this.logger.warn;
+      log.call(this.logger, `Filter events failed: ${error.message}`);
+
+      res.status(status).render("partials/list", {
+        events: [],
+        layout: false,
+      });
+      return;
+    }
+
+    res.render("partials/list", {
+      events: result.value,
+      layout: false,
+    });
+  }
 
   async searchEventsPartial(
     res: Response,
