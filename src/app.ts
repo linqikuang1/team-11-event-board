@@ -19,6 +19,7 @@ import {
 import { ILoggingService } from "./service/LoggingService";
 import type { IEventController } from "./events/EventController";
 import type { ICommentController } from "./comments/CommentController";
+import type { ISavedEventController } from "./saved/SavedEventController";
 
 type AsyncRequestHandler = RequestHandler;
 
@@ -39,6 +40,7 @@ class ExpressApp implements IApp {
     private readonly authController: IAuthController,
     private readonly eventController: IEventController,
     private readonly commentController: ICommentController,
+    private readonly savedEventController: ISavedEventController,
     private readonly logger: ILoggingService,
   ) {
     this.app = express();
@@ -367,6 +369,31 @@ class ExpressApp implements IApp {
       }),
     );
 
+    // ── Saved event routes ─────────────────────────────────────────
+
+    this.app.get(
+      "/saved",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+        const browserSession = recordPageView(sessionStore(req));
+        await this.savedEventController.showSavedEvents(res, browserSession);
+      }),
+    );
+
+    this.app.post(
+      "/events/:id/save",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+        const eventId = typeof req.params.id === "string" ? req.params.id : "";
+        const session = touchAppSession(sessionStore(req));
+        await this.savedEventController.toggleSave(res, eventId, session);
+      }),
+    );
+
     // ── Authenticated home page ──────────────────────────────────────
     // TODO: Replace this placeholder with your project's main page.
 
@@ -404,7 +431,8 @@ export function CreateApp(
   authController: IAuthController,
   eventController: IEventController,
   commentController: ICommentController,
+  savedEventController: ISavedEventController,
   logger: ILoggingService,
 ): IApp {
-  return new ExpressApp(authController, eventController, commentController, logger);
+  return new ExpressApp(authController, eventController, commentController, savedEventController, logger);
 }
