@@ -211,6 +211,7 @@ class EventService implements IEventService {
 
     return Ok(saveResult.value);
   }
+
   async searchEvents(ctx: SessionContext, query: string): Promise<Result<IEventRecord[], EventError>> {
     const normalized = query.trim().toLowerCase();
 
