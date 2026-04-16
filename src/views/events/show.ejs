@@ -14,12 +14,7 @@
     <% if (session.authenticatedUser?.role === "staff" || session.authenticatedUser?.role === "admin") { %>
       <div class="flex gap-2 flex-shrink-0">
         <% if (event.status === "draft" || event.status === "published") { %>
-          
-            href="/events/<%= event.id %>/edit"
-            class="px-4 py-2 rounded-lg border border-slate-300 text-slate-600 text-sm font-medium hover:bg-slate-50"
-          >
-            Edit
-          </a>
+            <a href="/events/<%= event.id %>/edit" class="px-4 py-2 rounded-lg border border-slate-300 text-slate-600 text-sm font-medium hover:bg-slate-50">Edit</a>
         <% } %>
         <% if (event.status === "draft") { %>
           <form method="post" action="/events/<%= event.id %>/publish">
