@@ -265,6 +265,30 @@ class ExpressApp implements IApp {
         );
       }),
     );
+
+    this.app.get(
+      "/events",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+        const browserSession = recordPageView(sessionStore(req));
+        const query = typeof req.query.q === "string" ? req.query.q : "";
+        const successMessage = typeof req.query.success === "string" ? req.query.success : null;
+        await this.eventController.showEventsPage(res, browserSession, query, successMessage);
+      }),
+    );
+    
+    this.app.get(
+      "/events/search",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+        const query = typeof req.query.q === "string" ? req.query.q : "";
+        await this.eventController.searchEventsPartial(res, query, sessionStore(req));
+      }),
+    );
     
     this.app.get(
       "/events/:id",
@@ -311,19 +335,6 @@ class ExpressApp implements IApp {
           },
           sessionStore(req),
         );
-      }),
-    );
-
-     this.app.get(
-      "/events",
-      asyncHandler(async (req, res) => {
-        if (!this.requireAuthenticated(req, res)) {
-          return;
-        }
-
-        const browserSession = recordPageView(sessionStore(req));
-        const query = typeof req.query.q === "string" ? req.query.q : "";
-        await this.eventController.showEventsPage(res, browserSession, query);
       }),
     );
 
