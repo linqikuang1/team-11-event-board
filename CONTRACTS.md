@@ -356,25 +356,39 @@ type CancelEventError =
 
 ```ts
 // TODO
+filterEvents(
+  ctx: SessionContext,
+  filters: {
+    tag?: string;
+    date?: string; // YYYY-MM-DD
+  }
+): Promise<Result<IEventRecord[], EventError>>
 ```
 
 #### Parameters
 
 | Parameter | Type | Notes |
 |-----------|------|-------|
-| | | _TODO_ |
+| `ctx` | `SessionContext` | Present for consistency with your other service methods, even though this feature likely does not need role-based restrictions. |
+| `filters.tag?` | `string` | Optional tag/category filter. Since your Event model uses `tags: string[]` rather than a single category, this should filter against tags unless your team decides to rename or add a separate category field. |
+| `filters.startDate?` | `string` | Optional lower date bound in `YYYY-MM-DD`. |
+| `filters.endDate?` | `string` | Optional upper date bound in `YYYY-MM-DD`. |
 
 #### Successful Result
 
-```
-TODO
+```ts
+{
+  ok: true,
+  value: Event[]
+}
 ```
 
 #### Named Errors
 
 ```ts
 type FilterEventsError =
-  // TODO
+  | { code: "VALIDATION_ERROR"; message: string; fields: Record<string, string> }
+  | { code: "REPOSITORY_ERROR"; message: string }  // TODO
 ```
 
 #### Open Questions

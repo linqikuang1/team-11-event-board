@@ -322,8 +322,13 @@ class ExpressApp implements IApp {
         }
 
         const browserSession = recordPageView(sessionStore(req));
-        const query = typeof req.query.q === "string" ? req.query.q : "";
-        await this.eventController.showEventsPage(res, browserSession, query);
+        const tag = typeof req.query.tag === "string" ? req.query.tag : "";
+        const timeframe =
+          typeof req.query.timeframe === "string" ? req.query.timeframe : "upcoming";
+        await this.eventController.showEventsPage(res, browserSession, {
+          tag,
+          timeframe,
+        });
       }),
     );
 

@@ -11,6 +11,13 @@ import {
 import { type IEventRepository } from "./EventRepository";
 import { type IEventRecord } from "./Event";
 
+
+export interface FilterEventsInput {
+  tag?: string;
+  timeframe?: "upcoming" | "week" | "weekend";
+}
+
+
 export interface CreateEventInput {
   title: string;
   description?: string;
@@ -40,16 +47,10 @@ export interface IEventService {
   createEvent(ctx: SessionContext, input: CreateEventInput): Promise<Result<IEventRecord, EventError>>;
   getEventById(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>>;
   updateEvent(ctx: SessionContext, eventId: string, input: UpdateEventInput): Promise<Result<IEventRecord, EventError>>;
+  filterEvents(ctx: SessionContext, filters: FilterEventsInput): Promise<Result<IEventRecord[], EventError>>;
   searchEvents(ctx: SessionContext, query: string): Promise<Result<IEventRecord[], EventError>>;
-  publishEvent(
-    ctx: SessionContext,
-    eventId: string,
-  ): Promise<Result<IEventRecord, EventError>>;
-  cancelEvent(
-    ctx: SessionContext,
-    eventId: string,
-  ): Promise<Result<IEventRecord, EventError>>;
-
+  publishEvent(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>>;
+  cancelEvent(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>>;
 }
 
 function validateEventInput(input: CreateEventInput | UpdateEventInput): Record<string, string> | null {
@@ -115,6 +116,26 @@ function validateEventInput(input: CreateEventInput | UpdateEventInput): Record<
 
 class EventService implements IEventService {
   constructor(private readonly events: IEventRepository) {}
+
+  private getWeekendRange(from: Date): { start: number; end: number } {
+    const base = new Date(from);
+    base.setHours(0, 0, 0, 0);
+
+    const currentDay = base.getDay();
+    const daysUntilSaturday = (6 - currentDay + 7) % 7;
+
+    const saturday = new Date(base);
+    saturday.setDate(base.getDate() + daysUntilSaturday);
+
+    const sundayEnd = new Date(saturday);
+    sundayEnd.setDate(saturday.getDate() + 1);
+    sundayEnd.setHours(23, 59, 59, 999);
+
+    return {
+      start: saturday.getTime(),
+      end: sundayEnd.getTime(),
+    };
+  }
 
   async createEvent(ctx: SessionContext, input: CreateEventInput): Promise<Result<IEventRecord, EventError>> {
     if (ctx.role === "user") {
@@ -305,6 +326,65 @@ class EventService implements IEventService {
 
     return Ok(saveResult.value);
   }
+
+  async filterEvents(
+    _ctx: SessionContext,
+    filters: FilterEventsInput,
+  ): Promise<Result<IEventRecord[], EventError>> {
+    const allResult = await this.events.findAll();
+
+    if (allResult.ok === false) {
+      return Err(UnexpectedDependencyError(allResult.value.message));
+    }
+
+    const normalizedTag = filters.tag?.trim().toLowerCase() ?? "";
+    const normalizedTimeframe = filters.timeframe?.trim().toLowerCase() ?? "upcoming";
+    const validTimeframes = new Set(["upcoming", "week", "weekend"]);
+    if (!validTimeframes.has(normalizedTimeframe)) {
+      return Err(
+        ValidationError("Invalid filter input.", {
+          timeframe: "Timeframe must be one of: upcoming, week, weekend.",
+        }),
+      );
+    }
+
+    const now = Date.now();
+
+    let results = allResult.value.filter((event) => {
+      const isPublished = event.status === "published";
+      const isUpcoming = new Date(event.endTime).getTime() > now;
+      return isPublished && isUpcoming;
+    });
+
+    if (normalizedTag.length > 0) {
+      results = results.filter((event) =>
+        event.tags.some((tag) => tag.toLowerCase() === normalizedTag),
+      );
+    }
+
+    if (normalizedTimeframe === "week") {
+      const weekEnd = now + 7 * 24 * 60 * 60 * 1000;
+      results = results.filter((event) => {
+        const start = new Date(event.startTime).getTime();
+        return start >= now && start <= weekEnd;
+      });
+    }
+
+    if (normalizedTimeframe === "weekend") {
+      const { start, end } = this.getWeekendRange(new Date(now));
+      results = results.filter((event) => {
+        const eventStart = new Date(event.startTime).getTime();
+        return eventStart >= start && eventStart <= end;
+      });
+    }
+
+    results.sort(
+      (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+    );
+
+    return Ok(results);
+}
+
 
   async cancelEvent(
     ctx: SessionContext,

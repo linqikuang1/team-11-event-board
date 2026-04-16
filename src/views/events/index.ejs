@@ -1,17 +1,35 @@
 <section class="mb-5 p-6 border border-slate-200 rounded-2xl bg-gradient-to-b from-white to-slate-50 shadow-lg">
   <h1 class="text-3xl font-bold text-slate-900 mb-3">Upcoming Events</h1>
-  <form>
+  <form
+    method="get"
+    action="/events"
+    hx-get="/events"
+    hx-target="#event-list"
+    hx-swap="innerHTML"
+    hx-push-url="true"
+    class="grid gap-3 md:grid-cols-3"
+  >
     <input
-      type="search"
-      name="q"
-      value="<%= query %>"
-      placeholder="Search by title, description, or location"
-      hx-get="/events/search"
-      hx-trigger="input changed delay:400ms, search"
-      hx-target="#event-list"
-      hx-swap="innerHTML"
+      type="text"
+      name="tag"
+      value="<%= tag %>"
+      placeholder="Filter by category tag (e.g. tech)"
       class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500"
     />
+    <select
+      name="timeframe"
+      class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500"
+    >
+      <option value="upcoming" <%= timeframe === "upcoming" ? "selected" : "" %>>All upcoming</option>
+      <option value="week" <%= timeframe === "week" ? "selected" : "" %>>This week</option>
+      <option value="weekend" <%= timeframe === "weekend" ? "selected" : "" %>>This weekend</option>
+    </select>
+    <button
+      type="submit"
+      class="px-4 py-2.5 rounded-xl bg-slate-900 text-white font-medium hover:bg-slate-700 transition-colors"
+    >
+      Apply filters
+    </button>
   </form>
 </section>
 

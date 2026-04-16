@@ -1,16 +1,17 @@
 import type { Response } from "express";
-import type { IEventService, CreateEventInput, UpdateEventInput, SessionContext } from "./EventService";
+import type { IEventService, CreateEventInput, UpdateEventInput, SessionContext, FilterEventsInput } from "./EventService";
 import type { IAppBrowserSession, AppSessionStore } from "../session/AppSession";
 import { touchAppSession } from "../session/AppSession";
 import type { ILoggingService } from "../service/LoggingService";
 import type { EventError } from "./errors";
+
 
 export interface IEventController {
   showCreateForm(res: Response, session: IAppBrowserSession, pageError?: string | null): Promise<void>;
   createFromForm(res: Response, input: CreateEventInput, store: AppSessionStore): Promise<void>;
   showEditForm(res: Response, eventId: string, session: IAppBrowserSession, pageError?: string | null): Promise<void>;
   updateFromForm(res: Response, eventId: string, input: UpdateEventInput, store: AppSessionStore): Promise<void>;
-  showEventsPage(res: Response, session: IAppBrowserSession, query?: string): Promise<void>;
+  showEventsPage(res: Response, session: IAppBrowserSession, filters?: FilterEventsInput): Promise<void>;
   searchEventsPartial(res: Response, query: string, store: AppSessionStore): Promise<void>;
   publishEvent(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
   cancelEvent(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
@@ -178,45 +179,55 @@ class EventController implements IEventController {
     this.logger.info(`Updated event ${result.value.id}`);
     res.redirect(`/events/${eventId}`);
   }
-    async showEventsPage(
-    res: Response,
-    session: IAppBrowserSession,
-    query: string = "",
-  ): Promise<void> {
-    const ctx = this.buildSessionContext(session);
 
-    if (!ctx) {
-      res.status(401).render("partials/error", {
-        message: "Please log in to continue.",
-        layout: false,
-      });
-      return;
-    }
+  async showEventsPage(
+  res: Response,
+  session: IAppBrowserSession,
+  filters: FilterEventsInput = {},
+): Promise<void> {
+  const ctx = this.buildSessionContext(session);
 
-    const result = await this.service.searchEvents(ctx, query);
-
-    if (result.ok === false) {
-      const error = result.value;
-      const status = this.mapErrorStatus(error);
-      const log = status >= 500 ? this.logger.error : this.logger.warn;
-      log.call(this.logger, `Show events failed: ${error.message}`);
-
-      res.status(status).render("events/index", {
-        session,
-        query,
-        events: [],
-        pageError: error.message,
-      });
-      return;
-    }
-
-    res.render("events/index", {
-      session,
-      query,
-      events: result.value,
-      pageError: null,
+  if (!ctx) {
+    res.status(401).render("partials/error", {
+      message: "Please log in to continue.",
+      layout: false,
     });
+    return;
   }
+
+  const safeFilters = {
+    tag: filters.tag ?? "",
+    timeframe: filters.timeframe ?? "upcoming",
+  };
+
+  const result = await this.service.filterEvents(ctx, safeFilters);
+
+  if (result.ok === false) {
+    const error = result.value;
+    const status = this.mapErrorStatus(error);
+    const log = status >= 500 ? this.logger.error : this.logger.warn;
+    log.call(this.logger, `Show events failed: ${error.message}`);
+
+    res.status(status).render("events/index", {
+      session,
+      query: "",
+      tag: safeFilters.tag,
+      timeframe: safeFilters.timeframe,
+      events: [],
+      pageError: error.message,
+    });
+    return;
+  }
+
+  res.render("events/index", {
+    session,
+    query: "",
+    tag: safeFilters.tag,
+    timeframe: safeFilters.timeframe,
+    events: result.value,
+    pageError: null,
+  });
+}
 
   async searchEventsPartial(
     res: Response,
@@ -242,17 +253,17 @@ class EventController implements IEventController {
       const log = status >= 500 ? this.logger.error : this.logger.warn;
       log.call(this.logger, `Search events failed: ${error.message}`);
 
-      res.status(status).render("events/partials/list", {
+      res.status(status).render("partials/list", {
         events: [],
         layout: false,
       });
       return;
     }
 
-    res.render("events/partials/list", {
+    res.render("partials/list", {
       events: result.value,
       layout: false,
-    });
+      });
   }
 
   /**
