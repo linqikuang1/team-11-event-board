@@ -14,6 +14,7 @@ export interface IEventController {
   searchEventsPartial(res: Response, query: string, store: AppSessionStore): Promise<void>;
   publishEvent(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
   cancelEvent(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
+  showEventDetail(res: Response, eventId: string, session: IAppBrowserSession): Promise<void>;
 }
 
 class EventController implements IEventController {
@@ -321,6 +322,36 @@ class EventController implements IEventController {
  
     this.logger.info(`Event ${eventId} cancelled by user ${ctx.userId}`);
     res.status(200).json({ status: result.value.status });
+  }
+
+  async showEventDetail(
+    res: Response,
+    eventId: string,
+    session: IAppBrowserSession,
+  ): Promise<void> {
+    const ctx = this.buildSessionContext(session);
+    if (!ctx) {
+      res.status(401).render("partials/error", {
+        message: "Please log in to continue.",
+        layout: false,
+      });
+      return;
+    }
+    const result = await this.service.getEventById(ctx, eventId);
+    
+    if (result.ok === false) {
+      const error = result.value;
+      const status = this.mapErrorStatus(error);
+      this.logger.warn(`Show event detail failed: ${error.message}`);
+      res.status(status).render("partials/error", {
+        message: error.message,
+        layout: false,
+      });
+      return;
+    }
+
+    this.logger.info(`GET /events/${eventId} for ${ctx.userId}`);
+    res.render("events/show", { session, event: result.value });
   }
 }
 
