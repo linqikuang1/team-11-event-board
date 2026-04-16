@@ -13,6 +13,9 @@ import { CreateEventController } from "./events/EventController";
 import { CreateInMemoryCommentRepository } from "./comments/InMemoryCommentRepository";
 import { CreateCommentService } from "./comments/CommentService";
 import { CreateCommentController } from "./comments/CommentController";
+import { CreateInMemorySavedEventRepository } from "./saved/InMemorySavedEventRepository";
+import { CreateSavedEventService } from "./saved/SavedEventService";
+import { CreateSavedEventController } from "./saved/SavedEventController";
 
 export function createComposedApp(logger?: ILoggingService): IApp {
   const resolvedLogger = logger ?? CreateLoggingService();
@@ -34,5 +37,10 @@ export function createComposedApp(logger?: ILoggingService): IApp {
   const commentService = CreateCommentService(commentRepository, eventRepository);
   const commentController = CreateCommentController(commentService, resolvedLogger);
 
-  return CreateApp(authController, eventController, commentController, resolvedLogger);
+  // Saved event wiring
+  const savedEventRepository = CreateInMemorySavedEventRepository();
+  const savedEventService = CreateSavedEventService(savedEventRepository, eventRepository);
+  const savedEventController = CreateSavedEventController(savedEventService, resolvedLogger);
+
+  return CreateApp(authController, eventController, commentController, savedEventController, resolvedLogger);
 }
