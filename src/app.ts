@@ -232,17 +232,6 @@ class ExpressApp implements IApp {
     );
 
     // ── Staff routes ──────────────────────────────────────────────────
-    this.app.get(
-      "/events/:id",
-      asyncHandler(async (req, res) => {
-        if (!this.requireAuthenticated(req, res)) {
-          return;
-        }
-        const browserSession = recordPageView(sessionStore(req));
-        const eventId = typeof req.params.id === "string" ? req.params.id : "";
-        await this.eventController.showEventDetail(res, eventId, browserSession);
-      }),
-    );
 
     this.app.get(
       "/events/create",
@@ -276,6 +265,18 @@ class ExpressApp implements IApp {
         );
       }),
     );
+    
+    this.app.get(
+      "/events/:id",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+        const browserSession = recordPageView(sessionStore(req));
+        const eventId = typeof req.params.id === "string" ? req.params.id : "";
+        await this.eventController.showEventDetail(res, eventId, browserSession);
+      }),
+    );    
 
     this.app.get(
       "/events/:id/edit",
