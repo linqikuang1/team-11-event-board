@@ -1,0 +1,22 @@
+<h1>Upcoming Events</h1>
+
+<% if (pageError) { %>
+  <p><%= pageError %></p>
+<% } %>
+
+<form>
+  <input
+    type="search"
+    name="q"
+    value="<%= query %>"
+    placeholder="Search by title, description, or location"
+    hx-get="/events/search"
+    hx-trigger="input changed delay:400ms, search"
+    hx-target="#event-list"
+    hx-swap="innerHTML"
+  />
+</form>
+
+<div id="event-list">
+  <%- include("../partials/list", { events: events }) %>
+</div>

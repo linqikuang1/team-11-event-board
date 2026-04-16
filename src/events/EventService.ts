@@ -39,6 +39,7 @@ export interface IEventService {
   createEvent(ctx: SessionContext, input: CreateEventInput): Promise<Result<IEventRecord, EventError>>;
   getEventById(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>>;
   updateEvent(ctx: SessionContext, eventId: string, input: UpdateEventInput): Promise<Result<IEventRecord, EventError>>;
+  searchEvents(ctx: SessionContext, query: string): Promise<Result<IEventRecord[], EventError>>;
 }
 
 function validateEventInput(input: CreateEventInput | UpdateEventInput): Record<string, string> | null {
@@ -209,6 +210,44 @@ class EventService implements IEventService {
     }
 
     return Ok(saveResult.value);
+  }
+  async searchEvents(ctx: SessionContext, query: string): Promise<Result<IEventRecord[], EventError>> {
+    const normalized = query.trim().toLowerCase();
+
+    const allResult = await this.events.findAll();
+    if (allResult.ok === false) {
+      return Err(UnexpectedDependencyError(allResult.value.message));
+    }
+
+    const now = Date.now();
+
+    let results = allResult.value.filter((event) => {
+      const isPublished = event.status === "published";
+      const isUpcoming = new Date(event.endTime).getTime() > now;
+
+      return isPublished && isUpcoming;
+    });
+
+    if (normalized.length === 0) {
+      results.sort(
+        (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+      );
+      return Ok(results);
+    }
+
+    results = results.filter((event) => {
+      return (
+        event.title.toLowerCase().includes(normalized) ||
+        event.description.toLowerCase().includes(normalized) ||
+        event.location.toLowerCase().includes(normalized)
+      );
+    });
+
+    results.sort(
+      (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+    );
+
+    return Ok(results);
   }
 }
 
