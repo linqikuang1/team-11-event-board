@@ -86,13 +86,21 @@
     <% } %>
 
     <% if (session.authenticatedUser?.role === "user") { %>
-      <div class="pt-4 border-t border-slate-200">
+      <div class="pt-4 border-t border-slate-200 flex gap-3">
         <form method="post" action="/events/<%= event.id %>/rsvp">
           <button
             type="submit"
             class="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700"
           >
             RSVP to this event
+          </button>
+        </form>
+        <form method="post" action="/events/<%= event.id %>/save">
+          <button
+            type="submit"
+            class="px-4 py-2.5 rounded-lg border border-slate-300 text-slate-600 font-medium hover:bg-slate-50"
+          >
+            Save for Later
           </button>
         </form>
       </div>
