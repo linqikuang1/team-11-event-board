@@ -7,6 +7,7 @@ import {
   UneditableStatus,
   UnexpectedDependencyError,
   ValidationError,
+  InvalidTransition,
   type EventError,
 } from "./errors";
 import type { IEventRepository } from "./EventRepository";
@@ -53,30 +54,23 @@ export interface ToggleRsvpResult {
 // Service interface
 
 export interface IEventService {
-  createEvent(
-    ctx: SessionContext,
-    input: CreateEventInput,
-  ): Promise<Result<IEventRecord, EventError>>;
-
-  updateEvent(
+  createEvent(ctx: SessionContext, input: CreateEventInput): Promise<Result<IEventRecord, EventError>>;
+  getEventById(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>>;
+  updateEvent(ctx: SessionContext, eventId: string, input: UpdateEventInput): Promise<Result<IEventRecord, EventError>>;
+  searchEvents(ctx: SessionContext, query: string): Promise<Result<IEventRecord[], EventError>>;
+  publishEvent(
     ctx: SessionContext,
     eventId: string,
-    input: UpdateEventInput,
   ): Promise<Result<IEventRecord, EventError>>;
-
-  /**
-   * Toggle the calling user's RSVP on an event.
-   *
-   * - If they have no active RSVP -> add them (attending or waitlisted).
-   * - If they are already attending or waitlisted -> cancel their RSVP.
-   * - Organizers, admins, and RSVPs on cancelled/past events are rejected.
-   */
+  cancelEvent(
+    ctx: SessionContext,
+    eventId: string,
+  ): Promise<Result<IEventRecord, EventError>>;
   toggleRsvp(
     ctx: SessionContext,
     eventId: string,
   ): Promise<Result<ToggleRsvpResult, EventError>>;
 
-  
 }
 
 function validateEventInput(
@@ -336,7 +330,99 @@ class EventService implements IEventService {
     });
   }
 
-  
+  async publishEvent(
+    ctx: SessionContext,
+    eventId: string,
+  ): Promise<Result<IEventRecord, EventError>> {
+    const findResult = await this.events.findById(eventId);
+    if (findResult.ok === false) {
+      return Err(UnexpectedDependencyError(findResult.value.message));
+    }
+    if (!findResult.value) {
+      return Err(EventNotFound("Event not found."));
+    }
+
+    const event = findResult.value;
+
+    // Ownership: staff may only publish their own events; admins may publish any.
+    if (ctx.role === "user") {
+      return Err(Forbidden("Members cannot publish events."));
+    }
+    if (ctx.role === "staff" && event.organizerId !== ctx.userId) {
+      return Err(Forbidden("You do not have permission to publish this event."));
+    }
+
+    // State guard: only draft → published is valid.
+    if (event.status !== "draft") {
+      return Err(
+        InvalidTransition(
+          `Cannot publish an event that is already ${event.status}.`,
+        ),
+      );
+    }
+
+    const updated: IEventRecord = {
+      ...event,
+      status: "published",
+      updatedAt: new Date().toISOString(),
+    };
+
+    const saveResult = await this.events.save(updated);
+    if (saveResult.ok === false) {
+      return Err(UnexpectedDependencyError(saveResult.value.message));
+    }
+
+    return Ok(saveResult.value);
+  }
+
+  async cancelEvent(
+    ctx: SessionContext,
+    eventId: string,
+  ): Promise<Result<IEventRecord, EventError>> {
+    const findResult = await this.events.findById(eventId);
+    if (findResult.ok === false) {
+      return Err(UnexpectedDependencyError(findResult.value.message));
+    }
+    if (!findResult.value) {
+      return Err(EventNotFound("Event not found."));
+    }
+
+    const event = findResult.value;
+
+    // Ownership: staff may only cancel their own events; admins may cancel any.
+    if (ctx.role === "user") {
+      return Err(Forbidden("Members cannot cancel events."));
+    }
+    if (ctx.role === "staff" && event.organizerId !== ctx.userId) {
+      return Err(Forbidden("You do not have permission to cancel this event."));
+    }
+
+    // State guard: only published → cancelled is valid (draft events are just deleted, not cancelled).
+    if (event.status === "cancelled") {
+      return Err(InvalidTransition("Event is already cancelled."));
+    }
+    if (event.status !== "published") {
+      return Err(
+        InvalidTransition(
+          `Cannot cancel an event that is ${event.status}. Only published events can be cancelled.`,
+        ),
+      );
+    }
+
+    const updated: IEventRecord = {
+      ...event,
+      status: "cancelled",
+      updatedAt: new Date().toISOString(),
+    };
+
+    const saveResult = await this.events.save(updated);
+    if (saveResult.ok === false) {
+      return Err(UnexpectedDependencyError(saveResult.value.message));
+    }
+
+    return Ok(saveResult.value);
+  }
+
 }
 
 // Factory

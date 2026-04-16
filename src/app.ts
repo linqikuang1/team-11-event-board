@@ -19,6 +19,7 @@ import {
 import { ILoggingService } from "./service/LoggingService";
 import type { IEventController } from "./events/EventController";
 import type { ICommentController } from "./comments/CommentController";
+import type { ISavedEventController } from "./saved/SavedEventController";
 
 type AsyncRequestHandler = RequestHandler;
 
@@ -39,6 +40,7 @@ class ExpressApp implements IApp {
     private readonly authController: IAuthController,
     private readonly eventController: IEventController,
     private readonly commentController: ICommentController,
+    private readonly savedEventController: ISavedEventController,
     private readonly logger: ILoggingService,
   ) {
     this.app = express();
@@ -267,6 +269,42 @@ class ExpressApp implements IApp {
     );
 
     this.app.get(
+      "/events",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+        const browserSession = recordPageView(sessionStore(req));
+        const query = typeof req.query.q === "string" ? req.query.q : "";
+        const successMessage = typeof req.query.success === "string" ? req.query.success : null;
+        await this.eventController.showEventsPage(res, browserSession, query, successMessage);
+      }),
+    );
+    
+    this.app.get(
+      "/events/search",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+        const query = typeof req.query.q === "string" ? req.query.q : "";
+        await this.eventController.searchEventsPartial(res, query, sessionStore(req));
+      }),
+    );
+    
+    this.app.get(
+      "/events/:id",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+        const browserSession = recordPageView(sessionStore(req));
+        const eventId = typeof req.params.id === "string" ? req.params.id : "";
+        await this.eventController.showEventDetail(res, eventId, browserSession);
+      }),
+    );    
+
+    this.app.get(
       "/events/:id/edit",
       asyncHandler(async (req, res) => {
         if (!this.requireRole(req, res, ["staff", "admin"], "Only staff can edit events.")) {
@@ -299,19 +337,6 @@ class ExpressApp implements IApp {
           },
           sessionStore(req),
         );
-      }),
-    );
-
-     this.app.get(
-      "/events",
-      asyncHandler(async (req, res) => {
-        if (!this.requireAuthenticated(req, res)) {
-          return;
-        }
-
-        const browserSession = recordPageView(sessionStore(req));
-        const query = typeof req.query.q === "string" ? req.query.q : "";
-        await this.eventController.showEventsPage(res, browserSession, query);
       }),
     );
 
@@ -367,6 +392,31 @@ class ExpressApp implements IApp {
       }),
     );
 
+    // ── Saved event routes ─────────────────────────────────────────
+
+    this.app.get(
+      "/saved",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+        const browserSession = recordPageView(sessionStore(req));
+        await this.savedEventController.showSavedEvents(res, browserSession);
+      }),
+    );
+
+    this.app.post(
+      "/events/:id/save",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+        const eventId = typeof req.params.id === "string" ? req.params.id : "";
+        const session = touchAppSession(sessionStore(req));
+        await this.savedEventController.toggleSave(res, eventId, session);
+      }),
+    );
+
     // ── Authenticated home page ──────────────────────────────────────
     // TODO: Replace this placeholder with your project's main page.
 
@@ -393,7 +443,61 @@ class ExpressApp implements IApp {
         layout: false,
       });
     });
+
+    // POST /events/:id/publish  — draft → published
+    // POST /events/:id/cancel   — published → cancelled
+    //
+    // Role gate is intentionally loose here (staff OR admin) because the
+    // service layer enforces ownership: a staff member may only transition
+    // their own events, while admins may act on any event.
+
+    this.app.post(
+      "/events/:id/publish",
+      asyncHandler(async (req, res) => {
+        if (
+          !this.requireRole(
+            req,
+            res,
+            ["staff", "admin"],
+            "Only organizers and admins can publish events.",
+          )
+        ) {
+          return;
+        }
+        const eventId =
+          typeof req.params.id === "string" ? req.params.id : "";
+        await this.eventController.publishEvent(
+          res,
+          eventId,
+          sessionStore(req),
+        );
+      }),
+    );
+
+    this.app.post(
+      "/events/:id/cancel",
+      asyncHandler(async (req, res) => {
+        if (
+          !this.requireRole(
+            req,
+            res,
+            ["staff", "admin"],
+            "Only organizers and admins can cancel events.",
+          )
+        ) {
+          return;
+        }
+        const eventId =
+          typeof req.params.id === "string" ? req.params.id : "";
+        await this.eventController.cancelEvent(
+          res,
+          eventId,
+          sessionStore(req),
+        );
+      }),
+    );
   }
+
 
   getExpressApp(): express.Express {
     return this.app;
@@ -404,7 +508,8 @@ export function CreateApp(
   authController: IAuthController,
   eventController: IEventController,
   commentController: ICommentController,
+  savedEventController: ISavedEventController,
   logger: ILoggingService,
 ): IApp {
-  return new ExpressApp(authController, eventController, commentController, logger);
+  return new ExpressApp(authController, eventController, commentController, savedEventController, logger);
 }

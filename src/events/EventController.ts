@@ -10,8 +10,11 @@ export interface IEventController {
   createFromForm(res: Response, input: CreateEventInput, store: AppSessionStore): Promise<void>;
   showEditForm(res: Response, eventId: string, session: IAppBrowserSession, pageError?: string | null): Promise<void>;
   updateFromForm(res: Response, eventId: string, input: UpdateEventInput, store: AppSessionStore): Promise<void>;
-  showEventsPage(res: Response, session: IAppBrowserSession, query?: string): Promise<void>;
+  showEventsPage(res: Response, session: IAppBrowserSession, query?: string, successMessage?: string | null): Promise<void>;
   searchEventsPartial(res: Response, query: string, store: AppSessionStore): Promise<void>;
+  publishEvent(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
+  cancelEvent(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
+  showEventDetail(res: Response, eventId: string, session: IAppBrowserSession): Promise<void>;
 }
 
 class EventController implements IEventController {
@@ -25,7 +28,22 @@ class EventController implements IEventController {
     if (error.name === "EventNotFound") return 404;
     if (error.name === "ValidationError") return 400;
     if (error.name === "UneditableStatus") return 409;
+    if (error.name === "InvalidTransition") return 409;
     return 500;
+  }
+
+  private renderPartialError(res: Response, status: number, message: string): void {
+    res.status(status).render("partials/error", { message, layout: false });
+  }
+
+  /** Extract and validate the authenticated user from the session. */
+  private resolveContext(store: AppSessionStore): SessionContext | null {
+    const user = touchAppSession(store).authenticatedUser;
+    if (!user) return null;
+    return {
+      userId: user.userId,
+      role: user.role as SessionContext["role"],
+    };
   }
 
     private buildSessionContext(session: IAppBrowserSession): SessionContext | null {
@@ -83,7 +101,7 @@ class EventController implements IEventController {
     }
 
     this.logger.info(`Created event ${result.value.id}`);
-    res.redirect("/events");
+    res.redirect("/events?success=Event+created+successfully");
   }
 
   async showEditForm(
@@ -164,6 +182,7 @@ class EventController implements IEventController {
     res: Response,
     session: IAppBrowserSession,
     query: string = "",
+    successMessage: string | null = null,
   ): Promise<void> {
     const ctx = this.buildSessionContext(session);
 
@@ -188,6 +207,7 @@ class EventController implements IEventController {
         query,
         events: [],
         pageError: error.message,
+        successMessage : successMessage ?? null,
       });
       return;
     }
@@ -197,6 +217,7 @@ class EventController implements IEventController {
       query,
       events: result.value,
       pageError: null,
+      successMessage,
     });
   }
 
@@ -235,6 +256,105 @@ class EventController implements IEventController {
       events: result.value,
       layout: false,
     });
+  }
+
+  /**
+   * POST /events/:id/publish
+   *
+   * Transitions a draft event to published. Responds with JSON on success so
+   * the page can update the status badge and action buttons inline.
+   *
+   * Response shape on success:
+   *   { status: "published" }
+   */
+  async publishEvent(
+    res: Response,
+    eventId: string,
+    store: AppSessionStore,
+  ): Promise<void> {
+    const ctx = this.resolveContext(store);
+    if (!ctx) {
+      this.renderPartialError(res, 401, "Please log in to continue.");
+      return;
+    }
+ 
+    const result = await this.service.publishEvent(ctx, eventId);
+ 
+    if (result.ok === false) {
+      const error = result.value;
+      const status = this.mapErrorStatus(error);
+      const log = status >= 500 ? this.logger.error : this.logger.warn;
+      log.call(this.logger, `Publish event ${eventId} failed: ${error.message}`);
+      this.renderPartialError(res, status, error.message);
+      return;
+    }
+ 
+    this.logger.info(`Event ${eventId} published by user ${ctx.userId}`);
+    res.redirect(`/events/${eventId}`);
+  }
+ 
+  /**
+   * POST /events/:id/cancel
+   *
+   * Permanently cancels a published event. Responds with JSON on success.
+   *
+   * Response shape on success:
+   *   { status: "cancelled" }
+   */
+  async cancelEvent(
+    res: Response,
+    eventId: string,
+    store: AppSessionStore,
+  ): Promise<void> {
+    const ctx = this.resolveContext(store);
+    if (!ctx) {
+      this.renderPartialError(res, 401, "Please log in to continue.");
+      return;
+    }
+ 
+    const result = await this.service.cancelEvent(ctx, eventId);
+ 
+    if (result.ok === false) {
+      const error = result.value;
+      const status = this.mapErrorStatus(error);
+      const log = status >= 500 ? this.logger.error : this.logger.warn;
+      log.call(this.logger, `Cancel event ${eventId} failed: ${error.message}`);
+      this.renderPartialError(res, status, error.message);
+      return;
+    }
+ 
+    this.logger.info(`Event ${eventId} cancelled by user ${ctx.userId}`);
+    res.redirect(`/events/${eventId}`);
+  }
+
+  async showEventDetail(
+    res: Response,
+    eventId: string,
+    session: IAppBrowserSession,
+  ): Promise<void> {
+    const ctx = this.buildSessionContext(session);
+    if (!ctx) {
+      res.status(401).render("partials/error", {
+        message: "Please log in to continue.",
+        layout: false,
+      });
+      return;
+    }
+    const result = await this.service.getEventById(ctx, eventId);
+    
+    if (result.ok === false) {
+      const error = result.value;
+      const status = this.mapErrorStatus(error);
+      this.logger.warn(`Show event detail failed: ${error.message}`);
+      res.status(status).render("partials/error", {
+        message: error.message,
+        layout: false,
+      });
+      return;
+    }
+
+    this.logger.info(`GET /events/${eventId} for ${ctx.userId}`);
+    res.render("events/show", { session, event: result.value });
   }
 }
 

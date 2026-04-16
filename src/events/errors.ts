@@ -5,6 +5,8 @@ export type EventError =
   | { name: "UneditableStatus"; message: string }
   | { name: "UnexpectedDependencyError"; message: string }
   | { name: "EventFull"; message: string };
+  | { name: "InvalidTransition"; message: string };
+
 
 export const Forbidden = (message: string): EventError => ({
   name: "Forbidden",
@@ -35,5 +37,10 @@ export const EventFull = (message: string): EventError => ({
 
 export const UnexpectedDependencyError = (message: string): EventError => ({
   name: "UnexpectedDependencyError",
+  message,
+});
+
+export const InvalidTransition = (message: string): EventError => ({
+  name: "InvalidTransition",
   message,
 });
