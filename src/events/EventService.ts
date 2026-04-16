@@ -3,7 +3,6 @@ import {
   EventFull,
   EventNotFound,
   Forbidden,
-  
   UneditableStatus,
   UnexpectedDependencyError,
   ValidationError,
@@ -13,8 +12,6 @@ import {
 import type { IEventRepository } from "./EventRepository";
 import type { IEventRecord } from "./Event";
 import type { IRsvpRepository, IRsvpRecord } from "./RsvpRepository";
-
-// Input / context types
 
 export interface CreateEventInput {
   title: string;
@@ -41,8 +38,6 @@ export interface SessionContext {
   role: "admin" | "staff" | "user";
 }
 
-// RSVP toggle result
-
 export type ToggleRsvpOutcome = "attending" | "waitlisted" | "cancelled";
 
 export interface ToggleRsvpResult {
@@ -51,26 +46,14 @@ export interface ToggleRsvpResult {
   attendeeCount: number;
 }
 
-// Service interface
-
 export interface IEventService {
   createEvent(ctx: SessionContext, input: CreateEventInput): Promise<Result<IEventRecord, EventError>>;
   getEventById(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>>;
   updateEvent(ctx: SessionContext, eventId: string, input: UpdateEventInput): Promise<Result<IEventRecord, EventError>>;
   searchEvents(ctx: SessionContext, query: string): Promise<Result<IEventRecord[], EventError>>;
-  publishEvent(
-    ctx: SessionContext,
-    eventId: string,
-  ): Promise<Result<IEventRecord, EventError>>;
-  cancelEvent(
-    ctx: SessionContext,
-    eventId: string,
-  ): Promise<Result<IEventRecord, EventError>>;
-  toggleRsvp(
-    ctx: SessionContext,
-    eventId: string,
-  ): Promise<Result<ToggleRsvpResult, EventError>>;
-
+  publishEvent(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>>;
+  cancelEvent(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>>;
+  toggleRsvp(ctx: SessionContext, eventId: string): Promise<Result<ToggleRsvpResult, EventError>>;
 }
 
 function validateEventInput(
@@ -136,15 +119,11 @@ function validateEventInput(
   return Object.keys(fields).length > 0 ? fields : null;
 }
 
-// Implementation 
-
 class EventService implements IEventService {
   constructor(
     private readonly events: IEventRepository,
     private readonly rsvps: IRsvpRepository,
   ) {}
-
-  // Existing methods (unchanged) 
 
   async createEvent(
     ctx: SessionContext,
@@ -181,6 +160,32 @@ class EventService implements IEventService {
     }
 
     return Ok(result.value);
+  }
+
+  async getEventById(
+    ctx: SessionContext,
+    eventId: string,
+  ): Promise<Result<IEventRecord, EventError>> {
+    const findResult = await this.events.findById(eventId);
+    if (findResult.ok === false) {
+      return Err(UnexpectedDependencyError(findResult.value.message));
+    }
+
+    if (!findResult.value) {
+      return Err(EventNotFound("Event not found."));
+    }
+
+    const event = findResult.value;
+
+    if (event.status === "draft" && ctx.role === "user") {
+      return Err(EventNotFound("Event not found."));
+    }
+
+    if (event.status === "draft" && ctx.role === "staff" && event.organizerId !== ctx.userId) {
+      return Err(EventNotFound("Event not found."));
+    }
+
+    return Ok(event);
   }
 
   async updateEvent(
@@ -235,18 +240,55 @@ class EventService implements IEventService {
     return Ok(saveResult.value);
   }
 
-  // Feature 4: RSVP toggle 
+  async searchEvents(
+    ctx: SessionContext,
+    query: string,
+  ): Promise<Result<IEventRecord[], EventError>> {
+    const normalized = query.trim().toLowerCase();
+
+    const allResult = await this.events.findAll();
+    if (allResult.ok === false) {
+      return Err(UnexpectedDependencyError(allResult.value.message));
+    }
+
+    const now = Date.now();
+
+    let results = allResult.value.filter((event) => {
+      const isPublished = event.status === "published";
+      const isUpcoming = new Date(event.endTime).getTime() > now;
+      return isPublished && isUpcoming;
+    });
+
+    if (normalized.length === 0) {
+      results.sort(
+        (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+      );
+      return Ok(results);
+    }
+
+    results = results.filter((event) => {
+      return (
+        event.title.toLowerCase().includes(normalized) ||
+        event.description.toLowerCase().includes(normalized) ||
+        event.location.toLowerCase().includes(normalized)
+      );
+    });
+
+    results.sort(
+      (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+    );
+
+    return Ok(results);
+  }
 
   async toggleRsvp(
     ctx: SessionContext,
     eventId: string,
   ): Promise<Result<ToggleRsvpResult, EventError>> {
-    // Organizers and admins do not RSVP to events they manage.
     if (ctx.role !== "user") {
       return Err(Forbidden("Organizers and admins cannot RSVP to events."));
     }
 
-    // Resolve the event.
     const findResult = await this.events.findById(eventId);
     if (findResult.ok === false) {
       return Err(UnexpectedDependencyError(findResult.value.message));
@@ -257,7 +299,6 @@ class EventService implements IEventService {
 
     const event = findResult.value;
 
-    // RSVPs are only valid on published, future events.
     if (event.status === "cancelled") {
       return Err(UneditableStatus("Cannot RSVP to a cancelled event."));
     }
@@ -268,7 +309,6 @@ class EventService implements IEventService {
       return Err(UneditableStatus("Cannot RSVP to an event that has already started."));
     }
 
-    // Load the caller's existing RSVP, if any.
     const existingResult = await this.rsvps.findByEventAndUser(eventId, ctx.userId);
     if (existingResult.ok === false) {
       return Err(UnexpectedDependencyError(existingResult.value.message));
@@ -277,7 +317,6 @@ class EventService implements IEventService {
     const existing = existingResult.value;
     const now = new Date().toISOString();
 
-    // ── Case 1: Cancel an active RSVP
     if (existing && (existing.status === "attending" || existing.status === "waitlisted")) {
       const cancelled: IRsvpRecord = { ...existing, status: "cancelled", updatedAt: now };
       const saveResult = await this.rsvps.save(cancelled);
@@ -285,7 +324,6 @@ class EventService implements IEventService {
         return Err(UnexpectedDependencyError(saveResult.value.message));
       }
 
-      // Re-count active attendees after cancellation.
       const countResult = await this.rsvps.findAllByEvent(eventId, { status: "attending" });
       if (countResult.ok === false) {
         return Err(UnexpectedDependencyError(countResult.value.message));
@@ -295,13 +333,9 @@ class EventService implements IEventService {
         rsvp: saveResult.value,
         outcome: "cancelled",
         attendeeCount: countResult.value.length,
-
       });
     }
 
-    // Case 2 & 3: New RSVP or reactivating a previously cancelled one 
-
-    // Count current active attendees to decide attending vs waitlisted.
     const attendingResult = await this.rsvps.findAllByEvent(eventId, { status: "attending" });
     if (attendingResult.ok === false) {
       return Err(UnexpectedDependencyError(attendingResult.value.message));
@@ -320,7 +354,6 @@ class EventService implements IEventService {
       return Err(UnexpectedDependencyError(saveResult.value.message));
     }
 
-    // Final attendee count (include the new attendee if not waitlisted).
     const finalCount = newStatus === "attending" ? attendeeCount + 1 : attendeeCount;
 
     return Ok<ToggleRsvpResult>({
@@ -344,7 +377,6 @@ class EventService implements IEventService {
 
     const event = findResult.value;
 
-    // Ownership: staff may only publish their own events; admins may publish any.
     if (ctx.role === "user") {
       return Err(Forbidden("Members cannot publish events."));
     }
@@ -352,13 +384,8 @@ class EventService implements IEventService {
       return Err(Forbidden("You do not have permission to publish this event."));
     }
 
-    // State guard: only draft → published is valid.
     if (event.status !== "draft") {
-      return Err(
-        InvalidTransition(
-          `Cannot publish an event that is already ${event.status}.`,
-        ),
-      );
+      return Err(InvalidTransition(`Cannot publish an event that is already ${event.status}.`));
     }
 
     const updated: IEventRecord = {
@@ -389,7 +416,6 @@ class EventService implements IEventService {
 
     const event = findResult.value;
 
-    // Ownership: staff may only cancel their own events; admins may cancel any.
     if (ctx.role === "user") {
       return Err(Forbidden("Members cannot cancel events."));
     }
@@ -397,16 +423,11 @@ class EventService implements IEventService {
       return Err(Forbidden("You do not have permission to cancel this event."));
     }
 
-    // State guard: only published → cancelled is valid (draft events are just deleted, not cancelled).
     if (event.status === "cancelled") {
       return Err(InvalidTransition("Event is already cancelled."));
     }
     if (event.status !== "published") {
-      return Err(
-        InvalidTransition(
-          `Cannot cancel an event that is ${event.status}. Only published events can be cancelled.`,
-        ),
-      );
+      return Err(InvalidTransition(`Cannot cancel an event that is ${event.status}. Only published events can be cancelled.`));
     }
 
     const updated: IEventRecord = {
@@ -422,10 +443,7 @@ class EventService implements IEventService {
 
     return Ok(saveResult.value);
   }
-
 }
-
-// Factory
 
 export function CreateEventService(
   events: IEventRepository,
