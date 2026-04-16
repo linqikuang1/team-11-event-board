@@ -120,7 +120,6 @@ class ExpressApp implements IApp {
   }
 
   private registerRoutes(): void {
-    // ── Public routes ────────────────────────────────────────────────
 
     this.app.get(
       "/",
@@ -168,7 +167,6 @@ class ExpressApp implements IApp {
       }),
     );
 
-    // ── Admin routes ─────────────────────────────────────────────────
 
     this.app.get(
       "/admin/users",
@@ -236,7 +234,6 @@ class ExpressApp implements IApp {
       }),
     );
 
-    // ── Staff routes ──────────────────────────────────────────────────
 
     this.app.get(
       "/events/create",
@@ -295,7 +292,7 @@ class ExpressApp implements IApp {
       }),
     );
 
-    // ── Feature 4: RSVP toggle ────────────────────────────────────────
+    // Feature 4: RSVP toggle code here
     //
     // POST /events/:id/rsvp
     //
@@ -317,62 +314,9 @@ class ExpressApp implements IApp {
       }),
     );
 
-    // ── Feature 5: Event lifecycle ────────────────────────────────────
-    //
-    // POST /events/:id/publish  — draft → published
-    // POST /events/:id/cancel   — published → cancelled
-    //
-    // Role gate is intentionally loose here (staff OR admin) because the
-    // service layer enforces ownership: a staff member may only transition
-    // their own events, while admins may act on any event.
+    
 
-    this.app.post(
-      "/events/:id/publish",
-      asyncHandler(async (req, res) => {
-        if (
-          !this.requireRole(
-            req,
-            res,
-            ["staff", "admin"],
-            "Only organizers and admins can publish events.",
-          )
-        ) {
-          return;
-        }
-        const eventId =
-          typeof req.params.id === "string" ? req.params.id : "";
-        await this.eventController.publishEvent(
-          res,
-          eventId,
-          sessionStore(req),
-        );
-      }),
-    );
-
-    this.app.post(
-      "/events/:id/cancel",
-      asyncHandler(async (req, res) => {
-        if (
-          !this.requireRole(
-            req,
-            res,
-            ["staff", "admin"],
-            "Only organizers and admins can cancel events.",
-          )
-        ) {
-          return;
-        }
-        const eventId =
-          typeof req.params.id === "string" ? req.params.id : "";
-        await this.eventController.cancelEvent(
-          res,
-          eventId,
-          sessionStore(req),
-        );
-      }),
-    );
-
-    // ── Authenticated home page ───────────────────────────────────────
+  
 
     this.app.get(
       "/home",
@@ -386,7 +330,7 @@ class ExpressApp implements IApp {
       }),
     );
 
-    // ── Error handler ─────────────────────────────────────────────────
+
 
     this.app.use(
       (err: unknown, _req: Request, res: Response, _next: (value?: unknown) => void) => {
