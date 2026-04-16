@@ -302,6 +302,31 @@ class ExpressApp implements IApp {
       }),
     );
 
+     this.app.get(
+      "/events",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+
+        const browserSession = recordPageView(sessionStore(req));
+        const query = typeof req.query.q === "string" ? req.query.q : "";
+        await this.eventController.showEventsPage(res, browserSession, query);
+      }),
+    );
+
+    this.app.get(
+      "/events/search",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+
+        const query = typeof req.query.q === "string" ? req.query.q : "";
+        await this.eventController.searchEventsPartial(res, query, sessionStore(req));
+      }),
+    );
+
     // ── Comment routes ──────────────────────────────────────────────
 
     this.app.get(
@@ -354,7 +379,7 @@ class ExpressApp implements IApp {
 
         const browserSession = recordPageView(sessionStore(req));
         this.logger.info(`GET /home for ${browserSession.browserLabel}`);
-        res.render("home", { session: browserSession, pageError: null });
+        res.redirect("/events")
       }),
     );
 
