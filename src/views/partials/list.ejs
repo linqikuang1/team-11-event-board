@@ -1,0 +1,13 @@
+<% if (!events || events.length === 0) { %>
+  <p>No matching upcoming events.</p>
+<% } else { %>
+  <ul>
+    <% events.forEach((event) => { %>
+      <li>
+        <strong><%= event.title %></strong><br />
+        <span><%= event.location %></span><br />
+        <span><%= event.startTime %></span>
+      </li>
+    <% }) %>
+  </ul>
+<% } %>
