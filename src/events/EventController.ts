@@ -10,7 +10,7 @@ export interface IEventController {
   createFromForm(res: Response, input: CreateEventInput, store: AppSessionStore): Promise<void>;
   showEditForm(res: Response, eventId: string, session: IAppBrowserSession, pageError?: string | null): Promise<void>;
   updateFromForm(res: Response, eventId: string, input: UpdateEventInput, store: AppSessionStore): Promise<void>;
-  showEventsPage(res: Response, session: IAppBrowserSession, query?: string): Promise<void>;
+  showEventsPage(res: Response, session: IAppBrowserSession, query?: string, successMessage?: string | null): Promise<void>;
   searchEventsPartial(res: Response, query: string, store: AppSessionStore): Promise<void>;
   publishEvent(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
   cancelEvent(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
@@ -101,7 +101,7 @@ class EventController implements IEventController {
     }
 
     this.logger.info(`Created event ${result.value.id}`);
-    res.redirect("/events");
+    res.redirect("/events?success=Event+created+successfully");
   }
 
   async showEditForm(
@@ -182,6 +182,7 @@ class EventController implements IEventController {
     res: Response,
     session: IAppBrowserSession,
     query: string = "",
+    successMessage: string | null = null,
   ): Promise<void> {
     const ctx = this.buildSessionContext(session);
 
@@ -206,6 +207,7 @@ class EventController implements IEventController {
         query,
         events: [],
         pageError: error.message,
+        successMessage : successMessage ?? null,
       });
       return;
     }
@@ -215,6 +217,7 @@ class EventController implements IEventController {
       query,
       events: result.value,
       pageError: null,
+      successMessage,
     });
   }
 
