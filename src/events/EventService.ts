@@ -39,6 +39,8 @@ export interface IEventService {
   createEvent(ctx: SessionContext, input: CreateEventInput): Promise<Result<IEventRecord, EventError>>;
   getEventById(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>>;
   updateEvent(ctx: SessionContext, eventId: string, input: UpdateEventInput): Promise<Result<IEventRecord, EventError>>;
+  transitionExpiredEvents(ctx: SessionContext): Promise<Result<number, EventError>>;
+  getArchivedEvents(ctx: SessionContext): Promise<Result<IEventRecord[], EventError>>;
 }
 
 function validateEventInput(input: CreateEventInput | UpdateEventInput): Record<string, string> | null {
@@ -209,6 +211,61 @@ class EventService implements IEventService {
     }
 
     return Ok(saveResult.value);
+  }
+    async transitionExpiredEvents(ctx: SessionContext): Promise<Result<number, EventError>> {
+    const allResult = await this.events.findAll();
+    if (allResult.ok === false) {
+      return Err(UnexpectedDependencyError(allResult.value.message));
+    }
+
+    const now = Date.now();
+    let changed = 0;
+
+    for (const event of allResult.value) {
+      const isExpired =
+        event.status === "published" &&
+        new Date(event.endTime).getTime() <= now;
+
+      if (!isExpired) {
+        continue;
+      }
+
+      const updated: IEventRecord = {
+        ...event,
+        status: "concluded",
+        updatedAt: new Date().toISOString(),
+      };
+
+      const saveResult = await this.events.save(updated);
+      if (saveResult.ok === false) {
+        return Err(UnexpectedDependencyError(saveResult.value.message));
+      }
+
+      changed += 1;
+    }
+
+    return Ok(changed);
+  }
+
+  async getArchivedEvents(ctx: SessionContext): Promise<Result<IEventRecord[], EventError>> {
+    const transitionResult = await this.transitionExpiredEvents(ctx);
+    if (transitionResult.ok === false) {
+      return transitionResult;
+    }
+
+    const allResult = await this.events.findAll();
+    if (allResult.ok === false) {
+      return Err(UnexpectedDependencyError(allResult.value.message));
+    }
+
+    const archived = allResult.value
+      .filter((event) => event.status === "concluded")
+      .sort(
+        (a, b) =>
+          new Date(b.endTime).getTime() - new Date(a.endTime).getTime(),
+      );
+
+    return Ok(archived);
   }
 }
 
