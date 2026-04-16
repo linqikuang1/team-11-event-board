@@ -4,9 +4,8 @@ export type EventError =
   | { name: "ValidationError"; message: string; fields?: Record<string, string> }
   | { name: "UneditableStatus"; message: string }
   | { name: "UnexpectedDependencyError"; message: string }
+  | { name: "InvalidTransition"; message: string }
   | { name: "EventFull"; message: string };
-  | { name: "InvalidTransition"; message: string };
-
 
 export const Forbidden = (message: string): EventError => ({
   name: "Forbidden",
