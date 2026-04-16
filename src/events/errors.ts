@@ -3,7 +3,8 @@ export type EventError =
   | { name: "EventNotFound"; message: string }
   | { name: "ValidationError"; message: string; fields?: Record<string, string> }
   | { name: "UneditableStatus"; message: string }
-  | { name: "UnexpectedDependencyError"; message: string };
+  | { name: "UnexpectedDependencyError"; message: string }
+  | { name: "EventFull"; message: string };
 
 export const Forbidden = (message: string): EventError => ({
   name: "Forbidden",
@@ -25,6 +26,12 @@ export const UneditableStatus = (message: string): EventError => ({
   name: "UneditableStatus",
   message,
 });
+
+export const EventFull = (message: string): EventError => ({
+  name: "EventFull",
+  message,
+});
+ 
 
 export const UnexpectedDependencyError = (message: string): EventError => ({
   name: "UnexpectedDependencyError",

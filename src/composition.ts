@@ -8,11 +8,9 @@ import type { IApp } from "./contracts";
 import { CreateLoggingService } from "./service/LoggingService";
 import type { ILoggingService } from "./service/LoggingService";
 import { CreateInMemoryEventRepository } from "./events/InMemoryEventRepository";
+import { CreateInMemoryRsvpRepository } from "./events/InMemoryRsvpRepository";
 import { CreateEventService } from "./events/EventService";
 import { CreateEventController } from "./events/EventController";
-import { CreateInMemoryCommentRepository } from "./comments/InMemoryCommentRepository";
-import { CreateCommentService } from "./comments/CommentService";
-import { CreateCommentController } from "./comments/CommentController";
 
 export function createComposedApp(logger?: ILoggingService): IApp {
   const resolvedLogger = logger ?? CreateLoggingService();
@@ -22,17 +20,17 @@ export function createComposedApp(logger?: ILoggingService): IApp {
   const passwordHasher = CreatePasswordHasher();
   const authService = CreateAuthService(authUsers, passwordHasher);
   const adminUserService = CreateAdminUserService(authUsers, passwordHasher);
-  const authController = CreateAuthController(authService, adminUserService, resolvedLogger);
+  const authController = CreateAuthController(
+    authService,
+    adminUserService,
+    resolvedLogger,
+  );
 
   // Event wiring
   const eventRepository = CreateInMemoryEventRepository();
-  const eventService = CreateEventService(eventRepository);
+  const rsvpRepository = CreateInMemoryRsvpRepository();
+  const eventService = CreateEventService(eventRepository, rsvpRepository);
   const eventController = CreateEventController(eventService, resolvedLogger);
 
-  // Comment wiring
-  const commentRepository = CreateInMemoryCommentRepository();
-  const commentService = CreateCommentService(commentRepository, eventRepository);
-  const commentController = CreateCommentController(commentService, resolvedLogger);
-
-  return CreateApp(authController, eventController, commentController, resolvedLogger);
+  return CreateApp(authController, eventController, resolvedLogger);
 }
