@@ -33,7 +33,6 @@ export const EventFull = (message: string): EventError => ({
 });
  
 
-
 export const UnexpectedDependencyError = (message: string): EventError => ({
   name: "UnexpectedDependencyError",
   message,
