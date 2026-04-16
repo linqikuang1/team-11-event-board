@@ -287,7 +287,7 @@ class EventController implements IEventController {
     }
  
     this.logger.info(`Event ${eventId} published by user ${ctx.userId}`);
-    res.status(200).json({ status: result.value.status });
+    res.redirect(`/events/${eventId}`);
   }
  
   /**
@@ -321,7 +321,7 @@ class EventController implements IEventController {
     }
  
     this.logger.info(`Event ${eventId} cancelled by user ${ctx.userId}`);
-    res.status(200).json({ status: result.value.status });
+    res.redirect(`/events/${eventId}`);
   }
 
   async showEventDetail(
