@@ -1,0 +1,20 @@
+<h1>Past Events Archive</h1>
+
+<% if (pageError) { %>
+  <p><%= pageError %></p>
+<% } %>
+
+<% if (!events || events.length === 0) { %>
+  <p>No archived events yet.</p>
+<% } else { %>
+  <ul>
+    <% events.forEach((event) => { %>
+      <li>
+        <strong><%= event.title %></strong><br />
+        <span><%= event.location %></span><br />
+        <span><%= event.endTime %></span><br />
+        <span>Status: <%= event.status %></span>
+      </li>
+    <% }) %>
+  </ul>
+<% } %>
