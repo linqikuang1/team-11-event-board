@@ -1,20 +1,15 @@
 import { Err, Ok, type Result } from "../lib/result";
 import {
-  EventFull,
-  EventNotFound,
   Forbidden,
-  
+  EventNotFound,
+  ValidationError,
   UneditableStatus,
   UnexpectedDependencyError,
-  ValidationError,
   InvalidTransition,
   type EventError,
 } from "./errors";
-import type { IEventRepository } from "./EventRepository";
-import type { IEventRecord } from "./Event";
-import type { IRsvpRepository, IRsvpRecord } from "./RsvpRepository";
-
-// Input / context types
+import { type IEventRepository } from "./EventRepository";
+import { type IEventRecord } from "./Event";
 
 export interface CreateEventInput {
   title: string;
@@ -41,18 +36,6 @@ export interface SessionContext {
   role: "admin" | "staff" | "user";
 }
 
-// RSVP toggle result
-
-export type ToggleRsvpOutcome = "attending" | "waitlisted" | "cancelled";
-
-export interface ToggleRsvpResult {
-  rsvp: IRsvpRecord;
-  outcome: ToggleRsvpOutcome;
-  attendeeCount: number;
-}
-
-// Service interface
-
 export interface IEventService {
   createEvent(ctx: SessionContext, input: CreateEventInput): Promise<Result<IEventRecord, EventError>>;
   getEventById(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>>;
@@ -66,16 +49,10 @@ export interface IEventService {
     ctx: SessionContext,
     eventId: string,
   ): Promise<Result<IEventRecord, EventError>>;
-  toggleRsvp(
-    ctx: SessionContext,
-    eventId: string,
-  ): Promise<Result<ToggleRsvpResult, EventError>>;
 
 }
 
-function validateEventInput(
-  input: CreateEventInput | UpdateEventInput,
-): Record<string, string> | null {
+function validateEventInput(input: CreateEventInput | UpdateEventInput): Record<string, string> | null {
   const fields: Record<string, string> = {};
 
   if ("title" in input && input.title !== undefined) {
@@ -136,20 +113,10 @@ function validateEventInput(
   return Object.keys(fields).length > 0 ? fields : null;
 }
 
-// Implementation 
-
 class EventService implements IEventService {
-  constructor(
-    private readonly events: IEventRepository,
-    private readonly rsvps: IRsvpRepository,
-  ) {}
+  constructor(private readonly events: IEventRepository) {}
 
-  // Existing methods (unchanged) 
-
-  async createEvent(
-    ctx: SessionContext,
-    input: CreateEventInput,
-  ): Promise<Result<IEventRecord, EventError>> {
+  async createEvent(ctx: SessionContext, input: CreateEventInput): Promise<Result<IEventRecord, EventError>> {
     if (ctx.role === "user") {
       return Err(Forbidden("Only staff and admins can create events."));
     }
@@ -183,11 +150,30 @@ class EventService implements IEventService {
     return Ok(result.value);
   }
 
-  async updateEvent(
-    ctx: SessionContext,
-    eventId: string,
-    input: UpdateEventInput,
-  ): Promise<Result<IEventRecord, EventError>> {
+  async getEventById(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>> {
+    const findResult = await this.events.findById(eventId);
+    if (findResult.ok === false) {
+      return Err(UnexpectedDependencyError(findResult.value.message));
+    }
+
+    if (!findResult.value) {
+      return Err(EventNotFound("Event not found."));
+    }
+
+    const event = findResult.value;
+
+    if (event.status === "draft" && ctx.role === "user") {
+      return Err(EventNotFound("Event not found."));
+    }
+
+    if (event.status === "draft" && ctx.role === "staff" && event.organizerId !== ctx.userId) {
+      return Err(EventNotFound("Event not found."));
+    }
+
+    return Ok(event);
+  }
+
+  async updateEvent(ctx: SessionContext, eventId: string, input: UpdateEventInput): Promise<Result<IEventRecord, EventError>> {
     if (ctx.role === "user") {
       return Err(Forbidden("Only staff and admins can edit events."));
     }
@@ -196,6 +182,7 @@ class EventService implements IEventService {
     if (findResult.ok === false) {
       return Err(UnexpectedDependencyError(findResult.value.message));
     }
+
     if (!findResult.value) {
       return Err(EventNotFound("Event not found."));
     }
@@ -235,99 +222,43 @@ class EventService implements IEventService {
     return Ok(saveResult.value);
   }
 
-  // Feature 4: RSVP toggle 
+  async searchEvents(ctx: SessionContext, query: string): Promise<Result<IEventRecord[], EventError>> {
+    const normalized = query.trim().toLowerCase();
 
-  async toggleRsvp(
-    ctx: SessionContext,
-    eventId: string,
-  ): Promise<Result<ToggleRsvpResult, EventError>> {
-    // Organizers and admins do not RSVP to events they manage.
-    if (ctx.role !== "user") {
-      return Err(Forbidden("Organizers and admins cannot RSVP to events."));
+    const allResult = await this.events.findAll();
+    if (allResult.ok === false) {
+      return Err(UnexpectedDependencyError(allResult.value.message));
     }
 
-    // Resolve the event.
-    const findResult = await this.events.findById(eventId);
-    if (findResult.ok === false) {
-      return Err(UnexpectedDependencyError(findResult.value.message));
-    }
-    if (!findResult.value) {
-      return Err(EventNotFound("Event not found."));
-    }
+    const now = Date.now();
 
-    const event = findResult.value;
+    let results = allResult.value.filter((event) => {
+      const isPublished = event.status === "published";
+      const isUpcoming = new Date(event.endTime).getTime() > now;
 
-    // RSVPs are only valid on published, future events.
-    if (event.status === "cancelled") {
-      return Err(UneditableStatus("Cannot RSVP to a cancelled event."));
-    }
-    if (event.status !== "published") {
-      return Err(UneditableStatus("Cannot RSVP to an event that is not published."));
-    }
-    if (new Date(event.startTime) <= new Date()) {
-      return Err(UneditableStatus("Cannot RSVP to an event that has already started."));
-    }
-
-    // Load the caller's existing RSVP, if any.
-    const existingResult = await this.rsvps.findByEventAndUser(eventId, ctx.userId);
-    if (existingResult.ok === false) {
-      return Err(UnexpectedDependencyError(existingResult.value.message));
-    }
-
-    const existing = existingResult.value;
-    const now = new Date().toISOString();
-
-    // ── Case 1: Cancel an active RSVP
-    if (existing && (existing.status === "attending" || existing.status === "waitlisted")) {
-      const cancelled: IRsvpRecord = { ...existing, status: "cancelled", updatedAt: now };
-      const saveResult = await this.rsvps.save(cancelled);
-      if (saveResult.ok === false) {
-        return Err(UnexpectedDependencyError(saveResult.value.message));
-      }
-
-      // Re-count active attendees after cancellation.
-      const countResult = await this.rsvps.findAllByEvent(eventId, { status: "attending" });
-      if (countResult.ok === false) {
-        return Err(UnexpectedDependencyError(countResult.value.message));
-      }
-
-      return Ok<ToggleRsvpResult>({
-        rsvp: saveResult.value,
-        outcome: "cancelled",
-        attendeeCount: countResult.value.length,
-
-      });
-    }
-
-    // Case 2 & 3: New RSVP or reactivating a previously cancelled one 
-
-    // Count current active attendees to decide attending vs waitlisted.
-    const attendingResult = await this.rsvps.findAllByEvent(eventId, { status: "attending" });
-    if (attendingResult.ok === false) {
-      return Err(UnexpectedDependencyError(attendingResult.value.message));
-    }
-
-    const attendeeCount = attendingResult.value.length;
-    const isFull = event.capacity !== null && attendeeCount >= event.capacity;
-    const newStatus = isFull ? "waitlisted" : "attending";
-
-    const upserted: IRsvpRecord = existing
-      ? { ...existing, status: newStatus, updatedAt: now }
-      : { eventId, userId: ctx.userId, status: newStatus, createdAt: now, updatedAt: now };
-
-    const saveResult = await this.rsvps.save(upserted);
-    if (saveResult.ok === false) {
-      return Err(UnexpectedDependencyError(saveResult.value.message));
-    }
-
-    // Final attendee count (include the new attendee if not waitlisted).
-    const finalCount = newStatus === "attending" ? attendeeCount + 1 : attendeeCount;
-
-    return Ok<ToggleRsvpResult>({
-      rsvp: saveResult.value,
-      outcome: newStatus,
-      attendeeCount: finalCount,
+      return isPublished && isUpcoming;
     });
+
+    if (normalized.length === 0) {
+      results.sort(
+        (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+      );
+      return Ok(results);
+    }
+
+    results = results.filter((event) => {
+      return (
+        event.title.toLowerCase().includes(normalized) ||
+        event.description.toLowerCase().includes(normalized) ||
+        event.location.toLowerCase().includes(normalized)
+      );
+    });
+
+    results.sort(
+      (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+    );
+
+    return Ok(results);
   }
 
   async publishEvent(
@@ -425,11 +356,6 @@ class EventService implements IEventService {
 
 }
 
-// Factory
-
-export function CreateEventService(
-  events: IEventRepository,
-  rsvps: IRsvpRepository,
-): IEventService {
-  return new EventService(events, rsvps);
+export function CreateEventService(events: IEventRepository): IEventService {
+  return new EventService(events);
 }
