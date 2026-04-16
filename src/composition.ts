@@ -7,6 +7,15 @@ import { CreateApp } from "./app";
 import type { IApp } from "./contracts";
 import { CreateLoggingService } from "./service/LoggingService";
 import type { ILoggingService } from "./service/LoggingService";
+import { CreateInMemoryEventRepository } from "./events/InMemoryEventRepository";
+import { CreateEventService } from "./events/EventService";
+import { CreateEventController } from "./events/EventController";
+import { CreateInMemoryCommentRepository } from "./comments/InMemoryCommentRepository";
+import { CreateCommentService } from "./comments/CommentService";
+import { CreateCommentController } from "./comments/CommentController";
+import { CreateInMemorySavedEventRepository } from "./saved/InMemorySavedEventRepository";
+import { CreateSavedEventService } from "./saved/SavedEventService";
+import { CreateSavedEventController } from "./saved/SavedEventController";
 
 export function createComposedApp(logger?: ILoggingService): IApp {
   const resolvedLogger = logger ?? CreateLoggingService();
@@ -18,5 +27,20 @@ export function createComposedApp(logger?: ILoggingService): IApp {
   const adminUserService = CreateAdminUserService(authUsers, passwordHasher);
   const authController = CreateAuthController(authService, adminUserService, resolvedLogger);
 
-  return CreateApp(authController, resolvedLogger);
+  // Event wiring
+  const eventRepository = CreateInMemoryEventRepository();
+  const eventService = CreateEventService(eventRepository);
+  const eventController = CreateEventController(eventService, resolvedLogger);
+
+  // Comment wiring
+  const commentRepository = CreateInMemoryCommentRepository();
+  const commentService = CreateCommentService(commentRepository, eventRepository);
+  const commentController = CreateCommentController(commentService, resolvedLogger);
+
+  // Saved event wiring
+  const savedEventRepository = CreateInMemorySavedEventRepository();
+  const savedEventService = CreateSavedEventService(savedEventRepository, eventRepository);
+  const savedEventController = CreateSavedEventController(savedEventService, resolvedLogger);
+
+  return CreateApp(authController, eventController, commentController, savedEventController, resolvedLogger);
 }

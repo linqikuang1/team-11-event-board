@@ -1,0 +1,69 @@
+<section class="mb-5 p-6 border border-slate-200 rounded-2xl bg-gradient-to-b from-white to-slate-50 shadow-lg">
+  <h1 class="text-3xl font-bold text-slate-900 mb-1">Comments</h1>
+  <p class="text-slate-500">
+    Event <span class="font-mono text-sm text-slate-600"><%= eventId.slice(0, 8) %></span>
+  </p>
+</section>
+
+<% if (pageError) { %>
+  <%- include("../partials/error", { message: pageError }) %>
+<% } %>
+
+<section class="mb-5 p-6 border border-slate-200 rounded-2xl bg-white shadow-lg">
+  <h2 class="text-xl font-semibold mb-4">Post a Comment</h2>
+  <form method="post" action="/events/<%= eventId %>/comments" class="grid gap-3">
+    <textarea
+      name="content"
+      rows="3"
+      required
+      maxlength="500"
+      placeholder="Write your comment..."
+      class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500 resize-none"
+    ></textarea>
+    <div>
+      <button
+        type="submit"
+        class="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium cursor-pointer hover:bg-blue-700"
+      >
+        Post Comment
+      </button>
+    </div>
+  </form>
+</section>
+
+<section class="p-6 border border-slate-200 rounded-2xl bg-white shadow-lg">
+  <h2 class="text-xl font-semibold mb-4">
+    All Comments
+    <span class="text-sm font-normal text-slate-400">(<%= comments.length %>)</span>
+  </h2>
+
+  <% if (comments.length === 0) { %>
+    <p class="text-slate-400 italic">No comments yet. Be the first to comment!</p>
+  <% } else { %>
+    <div class="grid gap-4">
+      <% comments.forEach(function(comment) { %>
+        <div class="p-4 border border-slate-200 rounded-xl bg-slate-50">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-semibold text-slate-700">
+              User <%= comment.userId.slice(0, 8) %>
+            </span>
+            <span class="text-xs text-slate-400">
+              <%= new Date(comment.createdAt).toLocaleString() %>
+            </span>
+          </div>
+          <p class="text-slate-800 whitespace-pre-wrap"><%= comment.content %></p>
+          <% if (comment.userId === currentUserId || session.authenticatedUser.role === "admin") { %>
+            <form method="post" action="/events/<%= eventId %>/comments/<%= comment.id %>/delete" class="mt-2">
+              <button
+                type="submit"
+                class="text-sm text-red-600 hover:text-red-800 cursor-pointer"
+              >
+                Delete
+              </button>
+            </form>
+          <% } %>
+        </div>
+      <% }); %>
+    </div>
+  <% } %>
+</section>
