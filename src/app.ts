@@ -280,6 +280,22 @@ class ExpressApp implements IApp {
         await this.eventController.showEventsPage(res, browserSession, query, successMessage);
       }),
     );
+
+    this.app.get(
+      "/events/:id/rsvp",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+
+        const browserSession = recordPageView(sessionStore(req));
+        const query = typeof req.query.q === "string" ? req.query.q : "";
+        await this.eventController.showEventsPage(res, browserSession, query);
+        const eventId =
+          typeof req.params.id === "string" ? req.params.id : "";
+        await this.eventController.toggleRsvp(res, eventId, sessionStore(req));
+      }),
+    );
     
     this.app.get(
       "/events/search",
@@ -418,7 +434,7 @@ class ExpressApp implements IApp {
     );
 
     // ── Authenticated home page ──────────────────────────────────────
-    // TODO: Replace this placeholder with your project's main page.
+    //
 
     this.app.get(
       "/home",
