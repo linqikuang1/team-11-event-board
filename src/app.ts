@@ -393,7 +393,61 @@ class ExpressApp implements IApp {
         layout: false,
       });
     });
+
+    // POST /events/:id/publish  — draft → published
+    // POST /events/:id/cancel   — published → cancelled
+    //
+    // Role gate is intentionally loose here (staff OR admin) because the
+    // service layer enforces ownership: a staff member may only transition
+    // their own events, while admins may act on any event.
+
+    this.app.post(
+      "/events/:id/publish",
+      asyncHandler(async (req, res) => {
+        if (
+          !this.requireRole(
+            req,
+            res,
+            ["staff", "admin"],
+            "Only organizers and admins can publish events.",
+          )
+        ) {
+          return;
+        }
+        const eventId =
+          typeof req.params.id === "string" ? req.params.id : "";
+        await this.eventController.publishEvent(
+          res,
+          eventId,
+          sessionStore(req),
+        );
+      }),
+    );
+
+    this.app.post(
+      "/events/:id/cancel",
+      asyncHandler(async (req, res) => {
+        if (
+          !this.requireRole(
+            req,
+            res,
+            ["staff", "admin"],
+            "Only organizers and admins can cancel events.",
+          )
+        ) {
+          return;
+        }
+        const eventId =
+          typeof req.params.id === "string" ? req.params.id : "";
+        await this.eventController.cancelEvent(
+          res,
+          eventId,
+          sessionStore(req),
+        );
+      }),
+    );
   }
+
 
   getExpressApp(): express.Express {
     return this.app;
