@@ -104,6 +104,35 @@ class EventController implements IEventController {
     res.redirect("/events?success=Event+created+successfully");
   }
 
+  async toggleRsvp(
+    res: Response,
+    eventId: string,
+    store: AppSessionStore,
+  ): Promise<void> {
+    const ctx = this.resolveContext(store);
+    if (!ctx) {
+      this.renderPartialError(res, 401, "Please log in to continue.");
+      return;
+    }
+ 
+    const result = await this.service.toggleRsvp(ctx, eventId);
+ 
+    if (result.ok === false) {
+      const error = result.value;
+      const status = this.mapErrorStatus(error);
+      const log = status >= 500 ? this.logger.error : this.logger.warn;
+      log.call(this.logger, `Toggle RSVP failed for event ${eventId}: ${error.message}`);
+      this.renderPartialError(res, status, error.message);
+      return;
+    }
+ 
+    const { outcome, attendeeCount } = result.value;
+    this.logger.info(
+      `User ${ctx.userId} toggled RSVP on event ${eventId}: ${outcome}`,
+    );
+    res.status(200).json({ outcome, attendeeCount });
+  }
+
   async showEditForm(
     res: Response,
     eventId: string,
