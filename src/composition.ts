@@ -35,7 +35,7 @@ export function createComposedApp(logger?: ILoggingService): IApp {
   // Event wiring
   const eventRepository = CreateInMemoryEventRepository();
   const rsvpRepository = CreateInMemoryRsvpRepository();
-  const eventService = CreateEventService(eventRepository, rsvpRepository);
+  const eventService = CreateEventService(eventRepository, rsvpRepository, authUsers);
   const eventController = CreateEventController(eventService, resolvedLogger);
 
   // Comment wiring

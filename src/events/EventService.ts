@@ -1,4 +1,5 @@
 import { Err, Ok, type Result } from "../lib/result";
+import type { IUserRepository } from "../auth/UserRepository";
 import {
   EventFull,
   EventNotFound,
@@ -46,6 +47,20 @@ export interface ToggleRsvpResult {
   attendeeCount: number;
 }
 
+export interface AttendeeListEntry {
+  userId: string;
+  displayName: string;
+  status: IRsvpRecord["status"];
+  rsvpedAt: string;
+}
+
+export interface AttendeeListResult {
+  event: IEventRecord;
+  attending: AttendeeListEntry[];
+  waitlisted: AttendeeListEntry[];
+  cancelled: AttendeeListEntry[];
+}
+
 export interface IEventService {
   createEvent(ctx: SessionContext, input: CreateEventInput): Promise<Result<IEventRecord, EventError>>;
   getEventById(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>>;
@@ -54,6 +69,7 @@ export interface IEventService {
   publishEvent(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>>;
   cancelEvent(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>>;
   toggleRsvp(ctx: SessionContext, eventId: string): Promise<Result<ToggleRsvpResult, EventError>>;
+  listAttendees(ctx: SessionContext, eventId: string): Promise<Result<AttendeeListResult, EventError>>;
 }
 
 function validateEventInput(
@@ -123,6 +139,7 @@ class EventService implements IEventService {
   constructor(
     private readonly events: IEventRepository,
     private readonly rsvps: IRsvpRepository,
+    private readonly users: IUserRepository,
   ) {}
 
   async createEvent(
@@ -363,6 +380,70 @@ class EventService implements IEventService {
     });
   }
 
+  async listAttendees(
+    ctx: SessionContext,
+    eventId: string,
+  ): Promise<Result<AttendeeListResult, EventError>> {
+    const eventResult = await this.events.findById(eventId);
+    if (eventResult.ok === false) {
+      return Err(UnexpectedDependencyError(eventResult.value.message));
+    }
+    if (!eventResult.value) {
+      return Err(EventNotFound("Event not found."));
+    }
+
+    const event = eventResult.value;
+
+    if (ctx.role === "user") {
+      return Err(Forbidden("Members cannot view attendee lists."));
+    }
+
+    if (ctx.role === "staff" && event.organizerId !== ctx.userId) {
+      return Err(Forbidden("You do not have permission to view this attendee list."));
+    }
+
+    const rsvpResult = await this.rsvps.findAllByEvent(eventId);
+    if (rsvpResult.ok === false) {
+      return Err(UnexpectedDependencyError(rsvpResult.value.message));
+    }
+
+    const entries: AttendeeListEntry[] = [];
+    for (const rsvp of rsvpResult.value) {
+      const userResult = await this.users.findById(rsvp.userId);
+      if (userResult.ok === false) {
+        return Err(UnexpectedDependencyError(userResult.value.message));
+      }
+
+      const displayName = userResult.value?.displayName ?? "Unknown user";
+      entries.push({
+        userId: rsvp.userId,
+        displayName,
+        status: rsvp.status,
+        rsvpedAt: rsvp.createdAt,
+      });
+    }
+
+    const byCreatedAtAsc = (a: AttendeeListEntry, b: AttendeeListEntry): number =>
+      new Date(a.rsvpedAt).getTime() - new Date(b.rsvpedAt).getTime();
+
+    const attending = entries
+      .filter((entry) => entry.status === "attending")
+      .sort(byCreatedAtAsc);
+    const waitlisted = entries
+      .filter((entry) => entry.status === "waitlisted")
+      .sort(byCreatedAtAsc);
+    const cancelled = entries
+      .filter((entry) => entry.status === "cancelled")
+      .sort(byCreatedAtAsc);
+
+    return Ok({
+      event,
+      attending,
+      waitlisted,
+      cancelled,
+    });
+  }
+
   async publishEvent(
     ctx: SessionContext,
     eventId: string,
@@ -448,6 +529,7 @@ class EventService implements IEventService {
 export function CreateEventService(
   events: IEventRepository,
   rsvps: IRsvpRepository,
+  users: IUserRepository,
 ): IEventService {
-  return new EventService(events, rsvps);
+  return new EventService(events, rsvps, users);
 }
