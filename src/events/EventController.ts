@@ -15,6 +15,7 @@ export interface IEventController {
   publishEvent(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
   cancelEvent(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
   showEventDetail(res: Response, eventId: string, session: IAppBrowserSession): Promise<void>;
+  showAttendeeList(res: Response, eventId: string, session: IAppBrowserSession): Promise<void>;
 }
 
 class EventController implements IEventController {
@@ -384,6 +385,46 @@ class EventController implements IEventController {
 
     this.logger.info(`GET /events/${eventId} for ${ctx.userId}`);
     res.render("events/show", { session, event: result.value });
+  }
+
+  async showAttendeeList(
+    res: Response,
+    eventId: string,
+    session: IAppBrowserSession,
+  ): Promise<void> {
+    const ctx = this.buildSessionContext(session);
+    if (!ctx) {
+      res.status(401).render("partials/error", {
+        message: "Please log in to continue.",
+        layout: false,
+      });
+      return;
+    }
+
+    const result = await this.service.listAttendees(ctx, eventId);
+
+    if (result.ok === false) {
+      const error = result.value;
+      const status = this.mapErrorStatus(error);
+      const log = status >= 500 ? this.logger.error : this.logger.warn;
+      log.call(this.logger, `Show attendee list failed: ${error.message}`);
+      res.status(status).render("partials/error", {
+        message: error.message,
+        layout: false,
+      });
+      return;
+    }
+
+    this.logger.info(`GET /events/${eventId}/attendees for ${ctx.userId}`);
+    res.render("events/attendees", {
+      session,
+      event: result.value.event,
+      attendeeGroups: {
+        attending: result.value.attending,
+        waitlisted: result.value.waitlisted,
+        cancelled: result.value.cancelled,
+      },
+    });
   }
 }
 
