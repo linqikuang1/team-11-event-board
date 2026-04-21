@@ -2,6 +2,7 @@ export type EventError =
   | { name: "Forbidden"; message: string }
   | { name: "EventNotFound"; message: string }
   | { name: "ValidationError"; message: string; fields?: Record<string, string> }
+  | { name: "InvalidFilterValue"; message: string; field: "category" | "timeframe" }
   | { name: "UneditableStatus"; message: string }
   | { name: "UnexpectedDependencyError"; message: string }
   | { name: "InvalidTransition"; message: string }
@@ -21,6 +22,15 @@ export const ValidationError = (message: string, fields?: Record<string, string>
   name: "ValidationError",
   message,
   fields,
+});
+
+export const InvalidFilterValue = (
+  field: "category" | "timeframe",
+  message: string,
+): EventError => ({
+  name: "InvalidFilterValue",
+  field,
+  message,
 });
 
 export const UneditableStatus = (message: string): EventError => ({

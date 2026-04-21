@@ -4,6 +4,7 @@ import {
   EventFull,
   EventNotFound,
   Forbidden,
+  InvalidFilterValue,
   UneditableStatus,
   UnexpectedDependencyError,
   ValidationError,
@@ -39,6 +40,20 @@ export interface SessionContext {
   role: "admin" | "staff" | "user";
 }
 
+export type EventFilterTimeframe = "all" | "week" | "weekend";
+
+export interface EventFilterInput {
+  q?: string;
+  category?: string;
+  timeframe?: string;
+}
+
+interface NormalizedEventFilters {
+  q: string;
+  category: string | null;
+  timeframe: EventFilterTimeframe;
+}
+
 export type ToggleRsvpOutcome = "attending" | "waitlisted" | "cancelled";
 
 export interface ToggleRsvpResult {
@@ -65,7 +80,10 @@ export interface IEventService {
   createEvent(ctx: SessionContext, input: CreateEventInput): Promise<Result<IEventRecord, EventError>>;
   getEventById(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>>;
   updateEvent(ctx: SessionContext, eventId: string, input: UpdateEventInput): Promise<Result<IEventRecord, EventError>>;
-  searchEvents(ctx: SessionContext, query: string): Promise<Result<IEventRecord[], EventError>>;
+  searchEvents(
+    ctx: SessionContext,
+    filters: EventFilterInput,
+  ): Promise<Result<IEventRecord[], EventError>>;
   publishEvent(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>>;
   cancelEvent(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>>;
   toggleRsvp(ctx: SessionContext, eventId: string): Promise<Result<ToggleRsvpResult, EventError>>;
@@ -133,6 +151,75 @@ function validateEventInput(
   }
 
   return Object.keys(fields).length > 0 ? fields : null;
+}
+
+function normalizeEventFilters(
+  filters: EventFilterInput,
+): Result<NormalizedEventFilters, EventError> {
+  const normalizedQuery = (filters.q ?? "").trim().toLowerCase();
+  const rawCategory = filters.category ?? "";
+  const category = rawCategory.trim();
+  const rawTimeframe = (filters.timeframe ?? "all").trim().toLowerCase();
+
+  if (category.length > 50) {
+    return Err(
+      InvalidFilterValue("category", "Category filter must be 50 characters or fewer."),
+    );
+  }
+
+  if (category.length > 0 && !/^[\w -]+$/.test(category)) {
+    return Err(
+      InvalidFilterValue(
+        "category",
+        "Category filter contains invalid characters.",
+      ),
+    );
+  }
+
+  if (rawTimeframe !== "all" && rawTimeframe !== "week" && rawTimeframe !== "weekend") {
+    return Err(
+      InvalidFilterValue(
+        "timeframe",
+        "Timeframe must be one of all, week, or weekend.",
+      ),
+    );
+  }
+
+  const timeframe: EventFilterTimeframe = rawTimeframe;
+
+  return Ok({
+    q: normalizedQuery,
+    category: category.length > 0 ? category.toLowerCase() : null,
+    timeframe,
+  });
+}
+
+function getEndOfWeek(date: Date): Date {
+  const endOfWeek = new Date(date);
+  const daysUntilSunday = (7 - endOfWeek.getDay()) % 7;
+  endOfWeek.setDate(endOfWeek.getDate() + daysUntilSunday);
+  endOfWeek.setHours(23, 59, 59, 999);
+  return endOfWeek;
+}
+
+function getWeekendRange(date: Date): { start: Date; end: Date } {
+  const day = date.getDay();
+  const start = new Date(date);
+
+  if (day === 0) {
+    start.setDate(start.getDate() - 1);
+  } else {
+    const daysUntilSaturday = (6 - day + 7) % 7;
+    start.setDate(start.getDate() + daysUntilSaturday);
+  }
+
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(start.getDate() + 1);
+  end.setHours(23, 59, 59, 999);
+
+  return { start, end };
 }
 
 class EventService implements IEventService {
@@ -259,9 +346,12 @@ class EventService implements IEventService {
 
   async searchEvents(
     ctx: SessionContext,
-    query: string,
+    filters: EventFilterInput,
   ): Promise<Result<IEventRecord[], EventError>> {
-    const normalized = query.trim().toLowerCase();
+    const normalizedFilters = normalizeEventFilters(filters);
+    if (normalizedFilters.ok === false) {
+      return Err(normalizedFilters.value);
+    }
 
     const allResult = await this.events.findAll();
     if (allResult.ok === false) {
@@ -276,20 +366,42 @@ class EventService implements IEventService {
       return isPublished && isUpcoming;
     });
 
-    if (normalized.length === 0) {
-      results.sort(
-        (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
-      );
-      return Ok(results);
+    const { q, category, timeframe } = normalizedFilters.value;
+
+    if (q.length > 0) {
+      results = results.filter((event) => {
+        return (
+          event.title.toLowerCase().includes(q) ||
+          event.description.toLowerCase().includes(q) ||
+          event.location.toLowerCase().includes(q)
+        );
+      });
     }
 
-    results = results.filter((event) => {
-      return (
-        event.title.toLowerCase().includes(normalized) ||
-        event.description.toLowerCase().includes(normalized) ||
-        event.location.toLowerCase().includes(normalized)
+    if (category) {
+      results = results.filter((event) =>
+        event.tags.some((tag) => tag.toLowerCase() === category),
       );
-    });
+    }
+
+    if (timeframe === "week") {
+      const weekEnd = getEndOfWeek(new Date(now));
+      results = results.filter((event) => {
+        const startTime = new Date(event.startTime).getTime();
+        return startTime >= now && startTime <= weekEnd.getTime();
+      });
+    }
+
+    if (timeframe === "weekend") {
+      const weekend = getWeekendRange(new Date(now));
+      results = results.filter((event) => {
+        const startTime = new Date(event.startTime).getTime();
+        return (
+          startTime >= weekend.start.getTime() &&
+          startTime <= weekend.end.getTime()
+        );
+      });
+    }
 
     results.sort(
       (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
