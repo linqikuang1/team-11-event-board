@@ -1,4 +1,4 @@
-import express, { type Express, type Request, type Response } from "express";
+import express, { type Request, type Response } from "express";
 import session from "express-session";
 import request from "supertest";
 import { CreateCommentController } from "../../src/comments/CommentController";
@@ -79,6 +79,15 @@ function buildApp() {
     );
   });
 
+  app.get("/events/:id/comments", async (req, res) => {
+    const eventId = typeof req.params.id === "string" ? req.params.id : "";
+    await commentController.showComments(
+      res,
+      eventId,
+      touchAppSession(req.session as AppSessionStore),
+    );
+  });
+
   return { app, eventRepository, commentService };
 }
 
@@ -102,6 +111,45 @@ function futurePublishedEvent(overrides: Partial<IEventRecord> = {}): IEventReco
 }
 
 describe("Comment routes (SuperTest)", () => {
+  it("happy path: authenticated user can view comments page", async () => {
+    const { app, eventRepository, commentService } = buildApp();
+    await eventRepository.save(futurePublishedEvent());
+    await commentService.addComment(
+      { userId: "user-1", role: "user" },
+      { eventId: "event-1", content: "First comment" },
+    );
+
+    const res = await request(app)
+      .get("/events/event-1/comments")
+      .set("x-test-user-id", "user-1")
+      .set("x-test-user-role", "user");
+
+    expect(res.status).toBe(200);
+    expect(res.body.view).toBe("comments/list");
+  });
+
+  it("domain error: GET comments for missing event returns 404", async () => {
+    const { app } = buildApp();
+
+    const res = await request(app)
+      .get("/events/no-such-event/comments")
+      .set("x-test-user-id", "user-1")
+      .set("x-test-user-role", "user");
+
+    expect(res.status).toBe(404);
+    expect(res.body.view).toBe("partials/error");
+  });
+
+  it("domain error: unauthenticated GET comments returns 401", async () => {
+    const { app, eventRepository } = buildApp();
+    await eventRepository.save(futurePublishedEvent());
+
+    const res = await request(app).get("/events/event-1/comments");
+
+    expect(res.status).toBe(401);
+    expect(res.body.view).toBe("partials/error");
+  });
+
   it("happy path: authenticated user posts comment via HTMX and gets HTML fragment response", async () => {
     const { app, eventRepository } = buildApp();
     await eventRepository.save(futurePublishedEvent());
@@ -167,6 +215,36 @@ describe("Comment routes (SuperTest)", () => {
       .set("HX-Request", "true");
 
     expect(res.status).toBe(403);
+    expect(res.body.view).toBe("partials/error");
+  });
+
+  it("domain error: posting to non-published event returns 403", async () => {
+    const { app, eventRepository } = buildApp();
+    await eventRepository.save(futurePublishedEvent({ status: "draft" }));
+
+    const res = await request(app)
+      .post("/events/event-1/comments")
+      .set("x-test-user-id", "user-1")
+      .set("x-test-user-role", "user")
+      .set("HX-Request", "true")
+      .type("form")
+      .send({ content: "Should fail" });
+
+    expect(res.status).toBe(403);
+    expect(res.body.view).toBe("partials/error");
+  });
+
+  it("domain error: deleting non-existent comment returns 404", async () => {
+    const { app, eventRepository } = buildApp();
+    await eventRepository.save(futurePublishedEvent());
+
+    const res = await request(app)
+      .post("/events/event-1/comments/no-such-id/delete")
+      .set("x-test-user-id", "user-1")
+      .set("x-test-user-role", "user")
+      .set("HX-Request", "true");
+
+    expect(res.status).toBe(404);
     expect(res.body.view).toBe("partials/error");
   });
 });
