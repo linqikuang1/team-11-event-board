@@ -670,6 +670,26 @@ class EventService implements IEventService {
 
     return Ok(changed);
   }
+  async getArchivedEvents(ctx: SessionContext): Promise<Result<IEventRecord[], EventError>> {
+    const transition = await this.transitionExpiredEvents(ctx);
+    if (transition.ok === false) {
+      return transition;
+    }
+
+    const allResult = await this.events.findAll();
+    if (allResult.ok === false) {
+      return Err(UnexpectedDependencyError(allResult.value.message));
+    }
+
+    const archived = allResult.value
+      .filter((e) => e.status === "concluded")
+      .sort(
+        (a, b) =>
+          new Date(b.endTime).getTime() - new Date(a.endTime).getTime(),
+      );
+
+    return Ok(archived);
+  }
 }
 
 export function CreateEventService(
