@@ -14,6 +14,7 @@ import type { EventError } from "./errors";
 export interface IEventController {
   showCreateForm(res: Response, session: IAppBrowserSession, pageError?: string | null): Promise<void>;
   createFromForm(res: Response, input: CreateEventInput, store: AppSessionStore): Promise<void>;
+  toggleRsvp(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
   showEditForm(res: Response, eventId: string, session: IAppBrowserSession, pageError?: string | null): Promise<void>;
   updateFromForm(res: Response, eventId: string, input: UpdateEventInput, store: AppSessionStore): Promise<void>;
   showEventsPage(
