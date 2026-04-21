@@ -638,6 +638,38 @@ class EventService implements IEventService {
 
     return Ok(saveResult.value);
   }
+    async transitionExpiredEvents(ctx: SessionContext): Promise<Result<number, EventError>> {
+    const allResult = await this.events.findAll();
+    if (allResult.ok === false) {
+      return Err(UnexpectedDependencyError(allResult.value.message));
+    }
+
+    const now = Date.now();
+    let changed = 0;
+
+    for (const event of allResult.value) {
+      const isExpired =
+        event.status === "published" &&
+        new Date(event.endTime).getTime() <= now;
+
+      if (!isExpired) continue;
+
+      const updated: IEventRecord = {
+        ...event,
+        status: "concluded",
+        updatedAt: new Date().toISOString(),
+      };
+
+      const saveResult = await this.events.save(updated);
+      if (saveResult.ok === false) {
+        return Err(UnexpectedDependencyError(saveResult.value.message));
+      }
+
+      changed++;
+    }
+
+    return Ok(changed);
+  }
 }
 
 export function CreateEventService(
