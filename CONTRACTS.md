@@ -115,30 +115,37 @@ The returned event has:
 
 ```ts
 type CreateEventError =
-  | { code: "FORBIDDEN";        message: string }
-  | { code: "VALIDATION_ERROR"; message: string; fields: Record<string, string> }
-  | { code: "REPOSITORY_ERROR"; message: string }
+  | { name: "Forbidden";                message: string }
+  | { name: "ValidationError";          message: string; fields: Record<string, string> }
+  | { name: "UnexpectedDependencyError"; message: string }
 ```
 
-| Error code | When it is raised |
-|------------|-------------------|
-| `FORBIDDEN` | `ctx.role === "member"` |
-| `VALIDATION_ERROR` | Any input field fails validation. `fields` maps each failing field name to a human-readable reason. |
-| `REPOSITORY_ERROR` | The underlying store fails to persist the event |
+| Error name | When it is raised | HTTP status |
+|------------|-------------------|-------------|
+| `Forbidden` | `ctx.role === "user"` — members cannot create events | 403 |
+| `ValidationError` | Any input field fails validation. `fields` maps each failing field name to a human-readable reason. | 400 |
+| `UnexpectedDependencyError` | The underlying store fails to persist the event | 500 |
 
-#### Validation Rules (canonical — reused by Feature 3)
+#### Validation Rules — full error map
 
-These rules live in a shared `validateEventInput(input)` helper so Feature 3 can call the same function:
+| Field | Error condition | `fields` key |
+|-------|----------------|--------------|
+| `title` | Missing or empty | `title: "Title is required."` |
+| `title` | Exceeds 200 characters | `title: "Title must be 200 characters or fewer."` |
+| `description` | Exceeds 5000 characters | `description: "Description must be 5000 characters or fewer."` |
+| `location` | Missing or empty | `location: "Location is required."` |
+| `location` | Exceeds 300 characters | `location: "Location must be 300 characters or fewer."` |
+| `startTime` | Not a valid datetime | `startTime: "Start time must be a valid date."` |
+| `startTime` | Not in the future | `startTime: "Start time must be in the future."` |
+| `endTime` | Not a valid datetime | `endTime: "End time must be a valid date."` |
+| `endTime` | Not strictly after `startTime` | `endTime: "End time must be after start time."` |
+| `capacity` | Not a positive integer | `capacity: "Capacity must be a positive integer."` |
+| `tags` | More than 10 items | `tags: "Maximum 10 tags allowed."` |
+| `tags` | Any tag empty or over 50 chars | `tags: "Each tag must be between 1 and 50 characters."` |
 
-1. `title` must be present and 1–200 characters
-2. `description` must be 0–5000 characters
-3. `location` must be present and 1–300 characters
-4. `startTime` must be a valid ISO-8601 datetime and must be in the future (relative to wall clock at call time)
-5. `endTime` must be a valid ISO-8601 datetime and must be **strictly after** `startTime`
-6. `capacity`, if provided, must be a positive integer (≥ 1)
-7. `tags` must contain 0–10 items, each 1–50 non-empty characters
-
----
+#### Sprint 2 notes
+- All error names match the `EventError` union in `src/events/errors.ts`
+- Integration tests covering every error case live in `test/events/EventService.test.ts` and `test/events/EventRoutes.test.ts`
 
 ## 3. Feature 2 — Event Detail Page
 
@@ -174,21 +181,30 @@ getEventById(
 #### Named Errors
 
 ```ts
-
 type GetEventError =
-| { code: "NOT_FOUND";         message: string }
-| { code: "FORBIDDEN";         message: string }
-| { code: "REPOSITORY_ERROR";  message: string }
+  | { name: "EventNotFound";            message: string }
+  | { name: "UnexpectedDependencyError"; message: string }
 ```
 
-#### Open Questions
+| Error name | When it is raised | HTTP status |
+|------------|-------------------|-------------|
+| `EventNotFound` | No event exists for `eventId` | 404 |
+| `EventNotFound` | Event is `"draft"` and `ctx.role === "user"` — members see 404 not 403 to avoid leaking existence | 404 |
+| `EventNotFound` | Event is `"draft"` and `ctx.role === "staff"` and `event.organizerId !== ctx.userId` | 404 |
+| `UnexpectedDependencyError` | The underlying store fails to read | 500 |
 
+#### Visibility Rules (canonical)
 
-- [ ] Can members view `"draft"` events, or only `"published"` ones?
-- [ ] What fields are visible to members vs organizers vs admins?
-- [ ] Should view count or attendance count be returned alongside the event?
+| Role | Can see published | Can see own drafts | Can see others' drafts |
+|------|------------------|--------------------|------------------------|
+| `user` | ✅ | ❌ | ❌ |
+| `staff` | ✅ | ✅ | ❌ |
+| `admin` | ✅ | ✅ | ✅ |
 
----
+Drafts hidden from unauthorized users return `EventNotFound` (not `Forbidden`) to avoid leaking the existence of unpublished events.
+
+#### Sprint 2 notes
+- Integration tests covering published events, missing events, and draft visibility from all three roles live in `test/events/EventService.test.ts` and `test/events/EventRoutes.test.ts`
 
 ## 4. Feature 3 — Event Editing
 
