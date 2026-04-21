@@ -1,0 +1,39 @@
+<h2 class="text-xl font-semibold mb-4">
+  All Comments
+  <span class="text-sm font-normal text-slate-400">(<%= comments.length %>)</span>
+</h2>
+
+<% if (comments.length === 0) { %>
+  <p class="text-slate-400 italic">No comments yet. Be the first to comment!</p>
+<% } else { %>
+  <div class="grid gap-4">
+    <% comments.forEach(function(comment) { %>
+      <div class="p-4 border border-slate-200 rounded-xl bg-slate-50">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-sm font-semibold text-slate-700">
+            User <%= comment.userId.slice(0, 8) %>
+          </span>
+          <span class="text-xs text-slate-400">
+            <%= new Date(comment.createdAt).toLocaleString() %>
+          </span>
+        </div>
+        <p class="text-slate-800 whitespace-pre-wrap"><%= comment.content %></p>
+        <% if (comment.userId === currentUserId || session.authenticatedUser.role === "admin") { %>
+          <form
+            hx-post="/events/<%= eventId %>/comments/<%= comment.id %>/delete"
+            hx-target="#comment-list"
+            hx-swap="innerHTML"
+            class="mt-2"
+          >
+            <button
+              type="submit"
+              class="text-sm text-red-600 hover:text-red-800 cursor-pointer"
+            >
+              Delete
+            </button>
+          </form>
+        <% } %>
+      </div>
+    <% }); %>
+  </div>
+<% } %>

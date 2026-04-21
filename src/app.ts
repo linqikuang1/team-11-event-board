@@ -411,7 +411,7 @@ class ExpressApp implements IApp {
         const eventId = typeof req.params.id === "string" ? req.params.id : "";
         const content = typeof req.body.content === "string" ? req.body.content : "";
         const session = touchAppSession(sessionStore(req));
-        await this.commentController.postComment(res, eventId, content, session);
+        await this.commentController.postComment(res, eventId, content, session, this.isHtmxRequest(req));
       }),
     );
 
@@ -424,7 +424,7 @@ class ExpressApp implements IApp {
         const eventId = typeof req.params.id === "string" ? req.params.id : "";
         const commentId = typeof req.params.commentId === "string" ? req.params.commentId : "";
         const session = touchAppSession(sessionStore(req));
-        await this.commentController.deleteComment(res, eventId, commentId, session);
+        await this.commentController.deleteComment(res, eventId, commentId, session, this.isHtmxRequest(req));
       }),
     );
 
