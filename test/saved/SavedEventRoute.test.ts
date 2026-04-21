@@ -131,6 +131,19 @@ describe("Saved routes (SuperTest)", () => {
     expect(adminRes.body.view).toBe("partials/error");
   });
 
+  it("domain error: saving a cancelled event returns 400", async () => {
+    const { app, events } = buildApp();
+    await events.save(publishedEvent({ id: "cancelled-event", status: "cancelled" }));
+
+    const res = await request(app)
+      .post("/events/cancelled-event/save")
+      .set("x-test-user-id", "user-1")
+      .set("x-test-user-role", "user");
+
+    expect(res.status).toBe(400);
+    expect(res.body.view).toBe("partials/error");
+  });
+
   it("happy path: member can view saved list page", async () => {
     const { app, events } = buildApp();
     await events.save(publishedEvent());
@@ -161,5 +174,28 @@ describe("Saved routes (SuperTest)", () => {
     expect(staff.status).toBe(403);
     expect(unauthenticated.body.view).toBe("partials/error");
     expect(staff.body.view).toBe("partials/error");
+  });
+
+  it("edge case: toggling the same event twice leaves saved list empty", async () => {
+    const { app, events } = buildApp();
+    await events.save(publishedEvent({ id: "event-repeat" }));
+
+    await request(app)
+      .post("/events/event-repeat/save")
+      .set("x-test-user-id", "user-1")
+      .set("x-test-user-role", "user");
+    await request(app)
+      .post("/events/event-repeat/save")
+      .set("x-test-user-id", "user-1")
+      .set("x-test-user-role", "user");
+
+    const list = await request(app)
+      .get("/saved")
+      .set("x-test-user-id", "user-1")
+      .set("x-test-user-role", "user");
+
+    expect(list.status).toBe(200);
+    expect(Array.isArray(list.body.locals.entries)).toBe(true);
+    expect(list.body.locals.entries).toHaveLength(0);
   });
 });
