@@ -150,6 +150,20 @@ describe("Comment routes (SuperTest)", () => {
     expect(res.body.view).toBe("partials/error");
   });
 
+  it("edge case: authenticated GET with no comments returns empty list", async () => {
+    const { app, eventRepository } = buildApp();
+    await eventRepository.save(futurePublishedEvent());
+
+    const res = await request(app)
+      .get("/events/event-1/comments")
+      .set("x-test-user-id", "user-1")
+      .set("x-test-user-role", "user");
+
+    expect(res.status).toBe(200);
+    expect(res.body.view).toBe("comments/list");
+    expect(res.body.locals.comments).toEqual([]);
+  });
+
   it("happy path: authenticated user posts comment via HTMX and gets HTML fragment response", async () => {
     const { app, eventRepository } = buildApp();
     await eventRepository.save(futurePublishedEvent());
@@ -178,6 +192,23 @@ describe("Comment routes (SuperTest)", () => {
       .set("HX-Request", "true")
       .type("form")
       .send({ content: "   " });
+
+    expect(res.status).toBe(400);
+    expect(res.body.view).toBe("partials/error");
+    expect(res.body.locals.message).toContain("Invalid comment input");
+  });
+
+  it("edge case: content longer than 500 chars returns 400", async () => {
+    const { app, eventRepository } = buildApp();
+    await eventRepository.save(futurePublishedEvent());
+
+    const res = await request(app)
+      .post("/events/event-1/comments")
+      .set("x-test-user-id", "user-1")
+      .set("x-test-user-role", "user")
+      .set("HX-Request", "true")
+      .type("form")
+      .send({ content: "x".repeat(501) });
 
     expect(res.status).toBe(400);
     expect(res.body.view).toBe("partials/error");
