@@ -32,7 +32,8 @@ export interface IEventController {
     session: IAppBrowserSession,
     isHtmxRequest?: boolean,
   ): Promise<void>;
-    showArchivePage(res: Response, session: IAppBrowserSession): Promise<void>;
+  showArchivePage(res: Response, session: IAppBrowserSession): Promise<void>;
+  toggleRsvp(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
 }
 
 class EventController implements IEventController {
@@ -473,6 +474,42 @@ class EventController implements IEventController {
         waitlisted: result.value.waitlisted,
         cancelled: result.value.cancelled,
       },
+    });
+  }
+  async showArchivePage(
+    res: Response,
+    session: IAppBrowserSession,
+  ): Promise<void> {
+    const ctx = this.buildSessionContext(session);
+
+    if (!ctx) {
+      res.status(401).render("partials/error", {
+        message: "Please log in to continue.",
+        layout: false,
+      });
+      return;
+    }
+
+    const result = await this.service.getArchivedEvents(ctx);
+
+    if (result.ok === false) {
+      const error = result.value;
+      const status = this.mapErrorStatus(error);
+      const log = status >= 500 ? this.logger.error : this.logger.warn;
+      log.call(this.logger, `Show archive failed: ${error.message}`);
+
+      res.status(status).render("events/archive", {
+        session,
+        events: [],
+        pageError: error.message,
+      });
+      return;
+    }
+
+    res.render("events/archive", {
+      session,
+      events: result.value,
+      pageError: null,
     });
   }
 }
