@@ -465,7 +465,12 @@ class ExpressApp implements IApp {
         }
         const eventId = typeof req.params.id === "string" ? req.params.id : "";
         const session = touchAppSession(sessionStore(req));
-        await this.savedEventController.toggleSave(res, eventId, session);
+        await this.savedEventController.toggleSave(
+          res,
+          eventId,
+          session,
+          this.isHtmxRequest(req),
+        );
       }),
     );
 
