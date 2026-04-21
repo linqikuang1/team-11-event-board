@@ -348,7 +348,12 @@ class ExpressApp implements IApp {
 
         const browserSession = recordPageView(sessionStore(req));
         const eventId = typeof req.params.id === "string" ? req.params.id : "";
-        await this.eventController.showAttendeeList(res, eventId, browserSession);
+        await this.eventController.showAttendeeList(
+          res,
+          eventId,
+          browserSession,
+          this.isHtmxRequest(req),
+        );
       }),
     );
 
