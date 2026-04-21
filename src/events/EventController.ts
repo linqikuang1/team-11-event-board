@@ -1,5 +1,11 @@
 import type { Response } from "express";
-import type { IEventService, CreateEventInput, UpdateEventInput, SessionContext } from "./EventService";
+import type {
+  IEventService,
+  CreateEventInput,
+  UpdateEventInput,
+  SessionContext,
+  EventFilterInput,
+} from "./EventService";
 import type { IAppBrowserSession, AppSessionStore } from "../session/AppSession";
 import { touchAppSession } from "../session/AppSession";
 import type { ILoggingService } from "../service/LoggingService";
@@ -10,8 +16,13 @@ export interface IEventController {
   createFromForm(res: Response, input: CreateEventInput, store: AppSessionStore): Promise<void>;
   showEditForm(res: Response, eventId: string, session: IAppBrowserSession, pageError?: string | null): Promise<void>;
   updateFromForm(res: Response, eventId: string, input: UpdateEventInput, store: AppSessionStore): Promise<void>;
-  showEventsPage(res: Response, session: IAppBrowserSession, query?: string, successMessage?: string | null): Promise<void>;
-  searchEventsPartial(res: Response, query: string, store: AppSessionStore): Promise<void>;
+  showEventsPage(
+    res: Response,
+    session: IAppBrowserSession,
+    filters?: EventFilterInput,
+    successMessage?: string | null,
+  ): Promise<void>;
+  searchEventsPartial(res: Response, filters: EventFilterInput, store: AppSessionStore): Promise<void>;
   publishEvent(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
   cancelEvent(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
   showEventDetail(res: Response, eventId: string, session: IAppBrowserSession): Promise<void>;
@@ -28,6 +39,7 @@ class EventController implements IEventController {
     if (error.name === "Forbidden") return 403;
     if (error.name === "EventNotFound") return 404;
     if (error.name === "ValidationError") return 400;
+    if (error.name === "InvalidFilterValue") return 400;
     if (error.name === "UneditableStatus") return 409;
     if (error.name === "InvalidTransition") return 409;
     return 500;
@@ -211,7 +223,7 @@ class EventController implements IEventController {
     async showEventsPage(
     res: Response,
     session: IAppBrowserSession,
-    query: string = "",
+    filters: EventFilterInput = {},
     successMessage: string | null = null,
   ): Promise<void> {
     const ctx = this.buildSessionContext(session);
@@ -224,7 +236,19 @@ class EventController implements IEventController {
       return;
     }
 
-    const result = await this.service.searchEvents(ctx, query);
+    const result = await this.service.searchEvents(ctx, filters);
+    const allEventsResult = await this.service.searchEvents(ctx, { timeframe: "all" });
+
+    const q = filters.q ?? "";
+    const category = filters.category ?? "";
+    const timeframe = filters.timeframe ?? "all";
+    const availableCategories =
+      allEventsResult.ok === true
+        ? [...new Set(allEventsResult.value.flatMap((event) => event.tags))]
+            .map((tag) => tag.trim())
+            .filter((tag) => tag.length > 0)
+            .sort((a, b) => a.localeCompare(b))
+        : [];
 
     if (result.ok === false) {
       const error = result.value;
@@ -234,7 +258,10 @@ class EventController implements IEventController {
 
       res.status(status).render("events/index", {
         session,
-        query,
+        q,
+        category,
+        timeframe,
+        availableCategories,
         events: [],
         pageError: error.message,
         successMessage : successMessage ?? null,
@@ -244,7 +271,10 @@ class EventController implements IEventController {
 
     res.render("events/index", {
       session,
-      query,
+      q,
+      category,
+      timeframe,
+      availableCategories,
       events: result.value,
       pageError: null,
       successMessage,
@@ -253,7 +283,7 @@ class EventController implements IEventController {
 
   async searchEventsPartial(
     res: Response,
-    query: string,
+    filters: EventFilterInput,
     store: AppSessionStore,
   ): Promise<void> {
     const session = touchAppSession(store);
@@ -267,7 +297,7 @@ class EventController implements IEventController {
       return;
     }
 
-    const result = await this.service.searchEvents(ctx, query);
+    const result = await this.service.searchEvents(ctx, filters);
 
     if (result.ok === false) {
       const error = result.value;
@@ -275,14 +305,14 @@ class EventController implements IEventController {
       const log = status >= 500 ? this.logger.error : this.logger.warn;
       log.call(this.logger, `Search events failed: ${error.message}`);
 
-      res.status(status).render("events/partials/list", {
+      res.status(status).render("partials/list", {
         events: [],
         layout: false,
       });
       return;
     }
 
-    res.render("events/partials/list", {
+    res.render("partials/list", {
       events: result.value,
       layout: false,
     });

@@ -275,9 +275,13 @@ class ExpressApp implements IApp {
           return;
         }
         const browserSession = recordPageView(sessionStore(req));
-        const query = typeof req.query.q === "string" ? req.query.q : "";
+        const filters = {
+          q: typeof req.query.q === "string" ? req.query.q : "",
+          category: typeof req.query.category === "string" ? req.query.category : "",
+          timeframe: typeof req.query.timeframe === "string" ? req.query.timeframe : "all",
+        };
         const successMessage = typeof req.query.success === "string" ? req.query.success : null;
-        await this.eventController.showEventsPage(res, browserSession, query, successMessage);
+        await this.eventController.showEventsPage(res, browserSession, filters, successMessage);
       }),
     );
 
@@ -289,8 +293,12 @@ class ExpressApp implements IApp {
         }
 
         const browserSession = recordPageView(sessionStore(req));
-        const query = typeof req.query.q === "string" ? req.query.q : "";
-        await this.eventController.showEventsPage(res, browserSession, query);
+        const filters = {
+          q: typeof req.query.q === "string" ? req.query.q : "",
+          category: typeof req.query.category === "string" ? req.query.category : "",
+          timeframe: typeof req.query.timeframe === "string" ? req.query.timeframe : "all",
+        };
+        await this.eventController.showEventsPage(res, browserSession, filters);
         const eventId =
           typeof req.params.id === "string" ? req.params.id : "";
         await this.eventController.toggleRsvp(res, eventId, sessionStore(req));
@@ -303,8 +311,12 @@ class ExpressApp implements IApp {
         if (!this.requireAuthenticated(req, res)) {
           return;
         }
-        const query = typeof req.query.q === "string" ? req.query.q : "";
-        await this.eventController.searchEventsPartial(res, query, sessionStore(req));
+        const filters = {
+          q: typeof req.query.q === "string" ? req.query.q : "",
+          category: typeof req.query.category === "string" ? req.query.category : "",
+          timeframe: typeof req.query.timeframe === "string" ? req.query.timeframe : "all",
+        };
+        await this.eventController.searchEventsPartial(res, filters, sessionStore(req));
       }),
     );
     
@@ -383,8 +395,12 @@ class ExpressApp implements IApp {
           return;
         }
 
-        const query = typeof req.query.q === "string" ? req.query.q : "";
-        await this.eventController.searchEventsPartial(res, query, sessionStore(req));
+        const filters = {
+          q: typeof req.query.q === "string" ? req.query.q : "",
+          category: typeof req.query.category === "string" ? req.query.category : "",
+          timeframe: typeof req.query.timeframe === "string" ? req.query.timeframe : "all",
+        };
+        await this.eventController.searchEventsPartial(res, filters, sessionStore(req));
       }),
     );
 

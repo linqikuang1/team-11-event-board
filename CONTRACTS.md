@@ -364,41 +364,53 @@ type CancelEventError =
 
 ## 7. Feature 6 — Category and Date Filter
 
-> **Status:** 🔲 Not started — fill in before implementation begins.
+> **Status:** ✅ Implemented for Sprint 2.
 
-### 7.1 `EventService.filterEvents`
+### 7.1 `EventService.searchEvents` (Filter + Search)
 
 #### Signature
 
 ```ts
-// TODO
+searchEvents(
+  ctx: SessionContext,
+  filters: EventFilterInput
+): Promise<Result<IEventRecord[], FilterEventsError>>
 ```
 
 #### Parameters
 
 | Parameter | Type | Notes |
 |-----------|------|-------|
-| | | _TODO_ |
+| `ctx` | `SessionContext` | The acting authenticated user. |
+| `filters.q` | `string \| undefined` | Optional search text. If present, matches title/description/location. |
+| `filters.category` | `string \| undefined` | Optional category filter, matched against event `tags` (case-insensitive exact tag match). |
+| `filters.timeframe` | `string \| undefined` | Optional timeframe filter. Allowed values: `"all"`, `"week"`, `"weekend"`. Defaults to `"all"`. |
 
 #### Successful Result
 
+```ts
+Ok(IEventRecord[])
 ```
-TODO
-```
+
+- Returns only events that are:
+  - `status === "published"`
+  - upcoming (`endTime > now`)
+- All active filters are combined with **AND** logic.
+- Results are sorted ascending by `startTime`.
 
 #### Named Errors
 
 ```ts
 type FilterEventsError =
-  // TODO
+  | { name: "InvalidFilterValue"; field: "category" | "timeframe"; message: string }
+  | { name: "UnexpectedDependencyError"; message: string }
 ```
 
-#### Open Questions
+#### Notes
 
-- [ ] What categories/tags are valid — free-form strings or a fixed enum?
-- [ ] Is date filter by `startTime`, `endTime`, or a range that overlaps either?
-- [ ] Can filters be combined (category AND date range)?
-- [ ] Does this share an implementation with Feature 10 (search)?
+- Category is free-form but validated for shape (max length and allowed characters).
+- Timeframe windows use event `startTime`.
+- Feature 10 search currently shares this implementation path via `filters.q`.
 
 ---
 
