@@ -88,6 +88,8 @@ export interface IEventService {
   cancelEvent(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>>;
   toggleRsvp(ctx: SessionContext, eventId: string): Promise<Result<ToggleRsvpResult, EventError>>;
   listAttendees(ctx: SessionContext, eventId: string): Promise<Result<AttendeeListResult, EventError>>;
+  transitionExpiredEvents(ctx: SessionContext): Promise<Result<number, EventError>>;
+  getArchivedEvents(ctx: SessionContext): Promise<Result<IEventRecord[], EventError>>;
 }
 
 function validateEventInput(
