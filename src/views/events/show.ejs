@@ -14,7 +14,15 @@
 
     <% if (session.authenticatedUser?.role === "staff" || session.authenticatedUser?.role === "admin") { %>
       <div class="flex gap-2 flex-shrink-0">
-        <a href="/events/<%= event.id %>/attendees" class="px-4 py-2 rounded-lg border border-slate-300 text-slate-600 text-sm font-medium hover:bg-slate-50">Attendees</a>
+        <button
+          type="button"
+          hx-get="/events/<%= event.id %>/attendees"
+          hx-target="#attendee-list-inline"
+          hx-swap="innerHTML"
+          class="px-4 py-2 rounded-lg border border-slate-300 text-slate-600 text-sm font-medium hover:bg-slate-50"
+        >
+          Attendees
+        </button>
         <% if (event.status === "draft" || event.status === "published") { %>
             <a href="/events/<%= event.id %>/edit" class="px-4 py-2 rounded-lg border border-slate-300 text-slate-600 text-sm font-medium hover:bg-slate-50">Edit</a>
         <% } %>
@@ -109,6 +117,10 @@
 
   </div>
 </section>
+
+<% if (session.authenticatedUser?.role === "staff" || session.authenticatedUser?.role === "admin") { %>
+  <section id="attendee-list-inline" class="mt-5"></section>
+<% } %>
 
 <section class="mt-5 max-w-3xl p-6 border border-slate-200 rounded-2xl bg-white shadow-lg">
   <div class="flex items-center justify-between mb-4">

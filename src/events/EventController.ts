@@ -26,7 +26,12 @@ export interface IEventController {
   publishEvent(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
   cancelEvent(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
   showEventDetail(res: Response, eventId: string, session: IAppBrowserSession): Promise<void>;
-  showAttendeeList(res: Response, eventId: string, session: IAppBrowserSession): Promise<void>;
+  showAttendeeList(
+    res: Response,
+    eventId: string,
+    session: IAppBrowserSession,
+    isHtmxRequest?: boolean,
+  ): Promise<void>;
 }
 
 class EventController implements IEventController {
@@ -421,6 +426,7 @@ class EventController implements IEventController {
     res: Response,
     eventId: string,
     session: IAppBrowserSession,
+    isHtmxRequest = false,
   ): Promise<void> {
     const ctx = this.buildSessionContext(session);
     if (!ctx) {
@@ -446,6 +452,18 @@ class EventController implements IEventController {
     }
 
     this.logger.info(`GET /events/${eventId}/attendees for ${ctx.userId}`);
+    if (isHtmxRequest) {
+      res.render("events/partials/attendee-list", {
+        attendeeGroups: {
+          attending: result.value.attending,
+          waitlisted: result.value.waitlisted,
+          cancelled: result.value.cancelled,
+        },
+        layout: false,
+      });
+      return;
+    }
+
     res.render("events/attendees", {
       session,
       event: result.value.event,

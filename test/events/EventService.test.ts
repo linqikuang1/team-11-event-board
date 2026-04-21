@@ -171,3 +171,187 @@ describe("EventService filters", () => {
     }
   });
 });
+
+describe("EventService listAttendees", () => {
+  it("allows an organizer staff user to view their event attendee list", async () => {
+    const events = CreateInMemoryEventRepository();
+    const rsvps = CreateInMemoryRsvpRepository();
+    const users = CreateInMemoryUserRepository();
+    const service = CreateEventService(events, rsvps, users);
+
+    await events.save(eventRecord("event-owned", { organizerId: "user-staff" }));
+    const now = new Date().toISOString();
+    await rsvps.save({
+      eventId: "event-owned",
+      userId: "user-reader",
+      status: "attending",
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const result = await service.listAttendees({ userId: "user-staff", role: "staff" }, "event-owned");
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.event.id).toBe("event-owned");
+      expect(result.value.attending).toHaveLength(1);
+      expect(result.value.attending[0].displayName).toBe("Una User");
+    }
+  });
+
+  it("allows admin to view attendee list for any event", async () => {
+    const events = CreateInMemoryEventRepository();
+    const rsvps = CreateInMemoryRsvpRepository();
+    const users = CreateInMemoryUserRepository();
+    const service = CreateEventService(events, rsvps, users);
+
+    await events.save(eventRecord("event-other-organizer", { organizerId: "different-staff" }));
+
+    const result = await service.listAttendees({ userId: "user-admin", role: "admin" }, "event-other-organizer");
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.event.id).toBe("event-other-organizer");
+    }
+  });
+
+  it("rejects member access to attendee lists", async () => {
+    const events = CreateInMemoryEventRepository();
+    const rsvps = CreateInMemoryRsvpRepository();
+    const users = CreateInMemoryUserRepository();
+    const service = CreateEventService(events, rsvps, users);
+
+    await events.save(eventRecord("event-visible"));
+    const result = await service.listAttendees({ userId: "user-reader", role: "user" }, "event-visible");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.value.name).toBe("Forbidden");
+      expect(result.value.message).toContain("Members");
+    }
+  });
+
+  it("rejects staff user who does not own the event", async () => {
+    const events = CreateInMemoryEventRepository();
+    const rsvps = CreateInMemoryRsvpRepository();
+    const users = CreateInMemoryUserRepository();
+    const service = CreateEventService(events, rsvps, users);
+
+    await events.save(eventRecord("event-not-owned", { organizerId: "some-other-staff" }));
+    const result = await service.listAttendees({ userId: "user-staff", role: "staff" }, "event-not-owned");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.value.name).toBe("Forbidden");
+      expect(result.value.message).toContain("permission");
+    }
+  });
+
+  it("returns event-not-found when event does not exist", async () => {
+    const events = CreateInMemoryEventRepository();
+    const rsvps = CreateInMemoryRsvpRepository();
+    const users = CreateInMemoryUserRepository();
+    const service = CreateEventService(events, rsvps, users);
+
+    const result = await service.listAttendees({ userId: "user-admin", role: "admin" }, "missing-event");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.value.name).toBe("EventNotFound");
+    }
+  });
+
+  it("groups attendees by status and sorts each group by createdAt ascending", async () => {
+    const events = CreateInMemoryEventRepository();
+    const rsvps = CreateInMemoryRsvpRepository();
+    const users = CreateInMemoryUserRepository();
+    const service = CreateEventService(events, rsvps, users);
+
+    await users.createUser({
+      id: "attending-early",
+      email: "attending-early@app.test",
+      displayName: "Attending Early",
+      role: "user",
+      passwordHash: "hash-1",
+    });
+    await users.createUser({
+      id: "attending-late",
+      email: "attending-late@app.test",
+      displayName: "Attending Late",
+      role: "user",
+      passwordHash: "hash-2",
+    });
+    await users.createUser({
+      id: "waitlisted-user",
+      email: "waitlisted@app.test",
+      displayName: "Waitlisted User",
+      role: "user",
+      passwordHash: "hash-3",
+    });
+    await users.createUser({
+      id: "cancelled-user",
+      email: "cancelled@app.test",
+      displayName: "Cancelled User",
+      role: "user",
+      passwordHash: "hash-4",
+    });
+
+    await events.save(eventRecord("event-grouped", { organizerId: "user-staff" }));
+
+    await rsvps.save({
+      eventId: "event-grouped",
+      userId: "attending-late",
+      status: "attending",
+      createdAt: "2026-01-01T11:00:00.000Z",
+      updatedAt: "2026-01-01T11:00:00.000Z",
+    });
+    await rsvps.save({
+      eventId: "event-grouped",
+      userId: "attending-early",
+      status: "attending",
+      createdAt: "2026-01-01T09:00:00.000Z",
+      updatedAt: "2026-01-01T09:00:00.000Z",
+    });
+    await rsvps.save({
+      eventId: "event-grouped",
+      userId: "waitlisted-user",
+      status: "waitlisted",
+      createdAt: "2026-01-01T10:00:00.000Z",
+      updatedAt: "2026-01-01T10:00:00.000Z",
+    });
+    await rsvps.save({
+      eventId: "event-grouped",
+      userId: "cancelled-user",
+      status: "cancelled",
+      createdAt: "2026-01-01T12:00:00.000Z",
+      updatedAt: "2026-01-01T12:00:00.000Z",
+    });
+    await rsvps.save({
+      eventId: "event-grouped",
+      userId: "missing-user-id",
+      status: "waitlisted",
+      createdAt: "2026-01-01T08:00:00.000Z",
+      updatedAt: "2026-01-01T08:00:00.000Z",
+    });
+
+    const result = await service.listAttendees({ userId: "user-staff", role: "staff" }, "event-grouped");
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.attending.map((entry) => entry.displayName)).toEqual([
+        "Attending Early",
+        "Attending Late",
+      ]);
+
+      expect(result.value.waitlisted.map((entry) => entry.rsvpedAt)).toEqual([
+        "2026-01-01T08:00:00.000Z",
+        "2026-01-01T10:00:00.000Z",
+      ]);
+      expect(result.value.waitlisted[0].displayName).toBe("Unknown user");
+
+      expect(result.value.cancelled.map((entry) => entry.displayName)).toEqual([
+        "Cancelled User",
+      ]);
+    }
+  });
+});
