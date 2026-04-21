@@ -319,6 +319,17 @@ class ExpressApp implements IApp {
         await this.eventController.searchEventsPartial(res, filters, sessionStore(req));
       }),
     );
+     this.app.get(
+      "/events/archive",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+
+        const browserSession = recordPageView(sessionStore(req));
+        await this.eventController.showArchivePage(res, browserSession);
+      }),
+    );
     
     this.app.get(
       "/events/:id",
