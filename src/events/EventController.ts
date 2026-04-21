@@ -32,6 +32,7 @@ export interface IEventController {
     session: IAppBrowserSession,
     isHtmxRequest?: boolean,
   ): Promise<void>;
+    showArchivePage(res: Response, session: IAppBrowserSession): Promise<void>;
 }
 
 class EventController implements IEventController {
