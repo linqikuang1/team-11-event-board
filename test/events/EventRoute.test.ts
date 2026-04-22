@@ -85,3 +85,38 @@ describe("POST /events/create", () => {
     expect(res.status).toBe(400);
   });
 });
+describe("GET /events/search", () => {
+  it("happy path: authenticated user can load search partial", async () => {
+    const app = buildApp();
+    const cookie = await loginAs(app, USER_EMAIL, PASSWORD);
+
+    const res = await request(app)
+      .get("/events/search")
+      .set("Cookie", cookie)
+      .query({ q: "" });
+
+    expect(res.status).toBe(200);
+  });
+
+  it("error: unauthenticated user gets redirected or blocked", async () => {
+    const app = buildApp();
+
+    const res = await request(app)
+      .get("/events/search")
+      .query({ q: "" });
+
+    expect([302, 401]).toContain(res.status);
+  });
+
+  it("error: invalid timeframe returns 400", async () => {
+    const app = buildApp();
+    const cookie = await loginAs(app, USER_EMAIL, PASSWORD);
+
+    const res = await request(app)
+      .get("/events/search")
+      .set("Cookie", cookie)
+      .query({ timeframe: "next-month" });
+
+    expect(res.status).toBe(400);
+  });
+});
