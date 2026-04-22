@@ -355,3 +355,91 @@ describe("EventService listAttendees", () => {
     }
   });
 });
+describe("EventService archive", () => {
+  it("transitions expired published events to concluded", async () => {
+    const events = CreateInMemoryEventRepository();
+    const rsvps = CreateInMemoryRsvpRepository();
+    const users = CreateInMemoryUserRepository();
+    const service = CreateEventService(events, rsvps, users);
+
+    const now = Date.now();
+
+    await events.save(
+      eventRecord("expired-published", {
+        status: "published",
+        startTime: new Date(now - 3 * 60 * 60 * 1000).toISOString(),
+        endTime: new Date(now - 2 * 60 * 60 * 1000).toISOString(),
+      }),
+    );
+
+    const result = await service.transitionExpiredEvents(userCtx());
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toBe(1);
+    }
+
+    const updated = await events.findById("expired-published");
+    expect(updated.ok).toBe(true);
+    if (updated.ok && updated.value) {
+      expect(updated.value.status).toBe("concluded");
+    }
+  });
+
+  it("does not change non-expired events", async () => {
+    const events = CreateInMemoryEventRepository();
+    const rsvps = CreateInMemoryRsvpRepository();
+    const users = CreateInMemoryUserRepository();
+    const service = CreateEventService(events, rsvps, users);
+
+    await events.save(
+      eventRecord("future-published", {
+        status: "published",
+      }),
+    );
+
+    const result = await service.transitionExpiredEvents(userCtx());
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toBe(0);
+    }
+
+    const updated = await events.findById("future-published");
+    expect(updated.ok).toBe(true);
+    if (updated.ok && updated.value) {
+      expect(updated.value.status).toBe("published");
+    }
+  });
+
+  it("returns archived events in reverse chronological order", async () => {
+    const events = CreateInMemoryEventRepository();
+    const rsvps = CreateInMemoryRsvpRepository();
+    const users = CreateInMemoryUserRepository();
+    const service = CreateEventService(events, rsvps, users);
+
+    await events.save(
+      eventRecord("older-archived", {
+        status: "concluded",
+        endTime: "2026-01-01T10:00:00.000Z",
+      }),
+    );
+
+    await events.save(
+      eventRecord("newer-archived", {
+        status: "concluded",
+        endTime: "2026-02-01T10:00:00.000Z",
+      }),
+    );
+
+    const result = await service.getArchivedEvents(userCtx());
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.map((event) => event.id)).toEqual([
+        "newer-archived",
+        "older-archived",
+      ]);
+    }
+  });
+});
