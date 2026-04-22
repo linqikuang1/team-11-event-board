@@ -34,7 +34,11 @@ export interface IEventController {
     isHtmxRequest?: boolean,
   ): Promise<void>;
   showArchivePage(res: Response, session: IAppBrowserSession): Promise<void>;
-  toggleRsvp(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
+  showArchivePartial(
+    res: Response,
+    session: IAppBrowserSession,
+    category?: string,
+  ): Promise<void>;
 }
 
 class EventController implements IEventController {
@@ -477,9 +481,10 @@ class EventController implements IEventController {
       },
     });
   }
-  async showArchivePage(
+    async showArchivePage(
     res: Response,
     session: IAppBrowserSession,
+    category: string = "",
   ): Promise<void> {
     const ctx = this.buildSessionContext(session);
 
@@ -491,7 +496,7 @@ class EventController implements IEventController {
       return;
     }
 
-    const result = await this.service.getArchivedEvents(ctx);
+    const result = await this.service.getArchivedEvents(ctx, category);
 
     if (result.ok === false) {
       const error = result.value;
@@ -503,14 +508,62 @@ class EventController implements IEventController {
         session,
         events: [],
         pageError: error.message,
+        category,
+        availableCategories: [],
       });
       return;
     }
+
+    const allArchived = await this.service.getArchivedEvents(ctx);
+    const availableCategories =
+      allArchived.ok === true
+        ? [...new Set(allArchived.value.flatMap((event) => event.tags))]
+            .map((tag) => tag.trim())
+            .filter((tag) => tag.length > 0)
+            .sort((a, b) => a.localeCompare(b))
+        : [];
 
     res.render("events/archive", {
       session,
       events: result.value,
       pageError: null,
+      category,
+      availableCategories,
+    });
+  }
+    async showArchivePartial(
+    res: Response,
+    session: IAppBrowserSession,
+    category: string = "",
+  ): Promise<void> {
+    const ctx = this.buildSessionContext(session);
+
+    if (!ctx) {
+      res.status(401).render("partials/error", {
+        message: "Please log in to continue.",
+        layout: false,
+      });
+      return;
+    }
+
+    const result = await this.service.getArchivedEvents(ctx, category);
+
+    if (result.ok === false) {
+      const error = result.value;
+      const status = this.mapErrorStatus(error);
+      const log = status >= 500 ? this.logger.error : this.logger.warn;
+      log.call(this.logger, `Show archive partial failed: ${error.message}`);
+
+      res.status(status).render("events/partials/archive_list", {
+        events: [],
+        layout: false,
+      });
+      return;
+    }
+
+    res.render("events/partials/archive_list", {
+      events: result.value,
+      layout: false,
     });
   }
 }
