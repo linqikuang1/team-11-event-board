@@ -88,6 +88,8 @@ export interface IEventService {
   cancelEvent(ctx: SessionContext, eventId: string): Promise<Result<IEventRecord, EventError>>;
   toggleRsvp(ctx: SessionContext, eventId: string): Promise<Result<ToggleRsvpResult, EventError>>;
   listAttendees(ctx: SessionContext, eventId: string): Promise<Result<AttendeeListResult, EventError>>;
+  transitionExpiredEvents(ctx: SessionContext): Promise<Result<number, EventError>>;
+  getArchivedEvents(ctx: SessionContext): Promise<Result<IEventRecord[], EventError>>;
 }
 
 function validateEventInput(
@@ -635,6 +637,58 @@ class EventService implements IEventService {
     }
 
     return Ok(saveResult.value);
+  }
+    async transitionExpiredEvents(ctx: SessionContext): Promise<Result<number, EventError>> {
+    const allResult = await this.events.findAll();
+    if (allResult.ok === false) {
+      return Err(UnexpectedDependencyError(allResult.value.message));
+    }
+
+    const now = Date.now();
+    let changed = 0;
+
+    for (const event of allResult.value) {
+      const isExpired =
+        event.status === "published" &&
+        new Date(event.endTime).getTime() <= now;
+
+      if (!isExpired) continue;
+
+      const updated: IEventRecord = {
+        ...event,
+        status: "concluded",
+        updatedAt: new Date().toISOString(),
+      };
+
+      const saveResult = await this.events.save(updated);
+      if (saveResult.ok === false) {
+        return Err(UnexpectedDependencyError(saveResult.value.message));
+      }
+
+      changed++;
+    }
+
+    return Ok(changed);
+  }
+  async getArchivedEvents(ctx: SessionContext): Promise<Result<IEventRecord[], EventError>> {
+    const transition = await this.transitionExpiredEvents(ctx);
+    if (transition.ok === false) {
+      return transition;
+    }
+
+    const allResult = await this.events.findAll();
+    if (allResult.ok === false) {
+      return Err(UnexpectedDependencyError(allResult.value.message));
+    }
+
+    const archived = allResult.value
+      .filter((e) => e.status === "concluded")
+      .sort(
+        (a, b) =>
+          new Date(b.endTime).getTime() - new Date(a.endTime).getTime(),
+      );
+
+    return Ok(archived);
   }
 }
 
