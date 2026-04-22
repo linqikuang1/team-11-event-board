@@ -104,14 +104,7 @@
             RSVP to this event
           </button>
         </form>
-        <form method="post" action="/events/<%= event.id %>/save">
-          <button
-            type="submit"
-            class="px-4 py-2.5 rounded-lg border border-slate-300 text-slate-600 font-medium hover:bg-slate-50"
-          >
-            Save for Later
-          </button>
-        </form>
+        <%- include("../saved/partials/save-toggle", { eventId: event.id, isSaved: false }) %>
       </div>
     <% } %>
 
