@@ -147,20 +147,11 @@ class EventController implements IEventController {
       return;
     }
  
-    const { outcome, attendeeCount, event } = result.value;
-    this.logger.info(`User ${ctx.userId} toggled RSVP on event ${eventId}: ${outcome}`);
- 
-    const isPast  = new Date(event.startTime) <= new Date();
-    const canRsvp = event.status === "published" && !isPast;
- 
-    res.status(200).render("events/partials/rsvp_button", {
-      layout: false,
-      eventId,
-      outcome,
-      attendeeCount,
-      capacity: event.capacity,
-      readonly: !canRsvp,
-    });
+    const { outcome, attendeeCount } = result.value;
+    this.logger.info(
+      `User ${ctx.userId} toggled RSVP on event ${eventId}: ${outcome}`,
+    );
+    res.status(200).json({ outcome, attendeeCount });
   }
 
   async showEditForm(
@@ -358,6 +349,7 @@ class EventController implements IEventController {
     }
  
     this.logger.info(`Event ${eventId} published by user ${ctx.userId}`);
+ 
     res.status(200).render("events/partials/event_controls", {
       layout: false,
       event: result.value,
