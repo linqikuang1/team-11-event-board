@@ -266,3 +266,156 @@ describe("EventService.toggleRsvp", () => {
     if (!result.ok) expect(result.value.name).toBe("EventNotFound");
   });
 });
+// ── Feature 5 — Event Lifecycle ───────────────────────────────────
+
+describe("EventService.publishEvent", () => {
+  it("happy path: organizer can publish their draft", async () => {
+    const service = createService();
+    const draft = await service.createEvent(staffCtx, validInput);
+    if (!draft.ok) throw new Error("seed failed");
+    const result = await service.publishEvent(staffCtx, draft.value.id);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.status).toBe("published");
+  });
+
+  it("happy path: admin can publish any draft", async () => {
+    const service = createService();
+    const draft = await service.createEvent(staffCtx, validInput);
+    if (!draft.ok) throw new Error("seed failed");
+    const result = await service.publishEvent(adminCtx, draft.value.id);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.status).toBe("published");
+  });
+
+  it("error: non-owning staff cannot publish", async () => {
+    const service = createService();
+    const draft = await service.createEvent(staffCtx, validInput);
+    if (!draft.ok) throw new Error("seed failed");
+    const result = await service.publishEvent(staffCtx2, draft.value.id);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.value.name).toBe("Forbidden");
+  });
+
+  it("error: member cannot publish", async () => {
+    const service = createService();
+    const draft = await service.createEvent(staffCtx, validInput);
+    if (!draft.ok) throw new Error("seed failed");
+    const result = await service.publishEvent(userCtx, draft.value.id);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.value.name).toBe("Forbidden");
+  });
+
+  it("error: cannot publish an already-published event", async () => {
+    const service = createService();
+    const draft = await service.createEvent(staffCtx, validInput);
+    if (!draft.ok) throw new Error("seed failed");
+    await service.publishEvent(staffCtx, draft.value.id);
+    const result = await service.publishEvent(staffCtx, draft.value.id);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.value.name).toBe("InvalidTransition");
+  });
+
+  it("error: cannot publish a cancelled event", async () => {
+    const service = createService();
+    const draft = await service.createEvent(staffCtx, validInput);
+    if (!draft.ok) throw new Error("seed failed");
+    await service.publishEvent(staffCtx, draft.value.id);
+    await service.cancelEvent(staffCtx, draft.value.id);
+    const result = await service.publishEvent(staffCtx, draft.value.id);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.value.name).toBe("InvalidTransition");
+  });
+
+  it("error: unknown event id returns EventNotFound", async () => {
+    const service = createService();
+    const result = await service.publishEvent(staffCtx, "no-such-id");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.value.name).toBe("EventNotFound");
+  });
+});
+
+describe("EventService.cancelEvent", () => {
+  async function seedPublished() {
+    const service = createService();
+    const draft = await service.createEvent(staffCtx, validInput);
+    if (!draft.ok) throw new Error("seed failed");
+    const pub = await service.publishEvent(staffCtx, draft.value.id);
+    if (!pub.ok) throw new Error("publish failed");
+    return { service, event: pub.value };
+  }
+
+  it("happy path: organizer can cancel their published event", async () => {
+    const { service, event } = await seedPublished();
+    const result = await service.cancelEvent(staffCtx, event.id);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.status).toBe("cancelled");
+  });
+
+  it("happy path: admin can cancel any published event", async () => {
+    const { service, event } = await seedPublished();
+    const result = await service.cancelEvent(adminCtx, event.id);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.status).toBe("cancelled");
+  });
+
+  it("error: non-owning staff cannot cancel", async () => {
+    const { service, event } = await seedPublished();
+    const result = await service.cancelEvent(staffCtx2, event.id);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.value.name).toBe("Forbidden");
+  });
+
+  it("error: member cannot cancel", async () => {
+    const { service, event } = await seedPublished();
+    const result = await service.cancelEvent(userCtx, event.id);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.value.name).toBe("Forbidden");
+  });
+
+  it("error: cannot cancel an already-cancelled event", async () => {
+    const { service, event } = await seedPublished();
+    await service.cancelEvent(staffCtx, event.id);
+    const result = await service.cancelEvent(staffCtx, event.id);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.value.name).toBe("InvalidTransition");
+  });
+
+  it("error: cannot cancel a draft event", async () => {
+    const service = createService();
+    const draft = await service.createEvent(staffCtx, validInput);
+    if (!draft.ok) throw new Error("seed failed");
+    const result = await service.cancelEvent(staffCtx, draft.value.id);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.value.name).toBe("InvalidTransition");
+  });
+
+  it("error: cancellation is permanent — cannot re-publish", async () => {
+    const { service, event } = await seedPublished();
+    await service.cancelEvent(staffCtx, event.id);
+    const result = await service.publishEvent(staffCtx, event.id);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.value.name).toBe("InvalidTransition");
+  });
+
+  it("error: unknown event id returns EventNotFound", async () => {
+    const service = createService();
+    const result = await service.cancelEvent(staffCtx, "no-such-id");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.value.name).toBe("EventNotFound");
+  });
+});
