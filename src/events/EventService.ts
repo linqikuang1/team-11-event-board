@@ -13,7 +13,7 @@ import {
 } from "./errors";
 import type { IEventRepository } from "./EventRepository";
 import type { IEventRecord } from "./Event";
-import type { IRsvpRepository, IRsvpRecord } from "./RsvpRepository";
+import type { IRsvpRepository, IRsvpRecord, RsvpStatus } from "./RsvpRepository";
 
 export interface CreateEventInput {
   title: string;
@@ -60,6 +60,12 @@ export interface ToggleRsvpResult {
   rsvp: IRsvpRecord;
   outcome: ToggleRsvpOutcome;
   attendeeCount: number;
+  event: IEventRecord;
+}
+
+export interface RsvpStateResult {
+  outcome: RsvpStatus | null;  
+  attendeeCount: number;
 }
 
 export interface AttendeeListEntry {
@@ -90,6 +96,7 @@ export interface IEventService {
   listAttendees(ctx: SessionContext, eventId: string): Promise<Result<AttendeeListResult, EventError>>;
   transitionExpiredEvents(ctx: SessionContext): Promise<Result<number, EventError>>;
   getArchivedEvents(ctx: SessionContext): Promise<Result<IEventRecord[], EventError>>;
+  getRsvpState(ctx: SessionContext, eventId: string,): Promise<Result<RsvpStateResult, EventError>>;
 }
 
 function validateEventInput(
@@ -460,11 +467,12 @@ class EventService implements IEventService {
         return Err(UnexpectedDependencyError(countResult.value.message));
       }
 
-      return Ok<ToggleRsvpResult>({
+      return Ok({
         rsvp: saveResult.value,
-        outcome: "cancelled",
+        outcome: "cancelled" as const,
         attendeeCount: countResult.value.length,
-      });
+        event,               
+    });
     }
 
     const attendingResult = await this.rsvps.findAllByEvent(eventId, { status: "attending" });
@@ -491,6 +499,31 @@ class EventService implements IEventService {
       rsvp: saveResult.value,
       outcome: newStatus,
       attendeeCount: finalCount,
+      event
+    });
+  }
+
+  async getRsvpState(
+    ctx: SessionContext,
+    eventId: string,
+  ): Promise<Result<RsvpStateResult, EventError>> {
+    const existingResult = await this.rsvps.findByEventAndUser(eventId, ctx.userId);
+    if (existingResult.ok === false) {
+      return Err(UnexpectedDependencyError(existingResult.value.message));
+    }
+ 
+    const attendingResult = await this.rsvps.findAllByEvent(eventId, { status: "attending" });
+    if (attendingResult.ok === false) {
+      return Err(UnexpectedDependencyError(attendingResult.value.message));
+    }
+ 
+    const existing = existingResult.value;
+    const outcome: RsvpStatus | null =
+      existing && existing.status !== "cancelled" ? existing.status : null;
+ 
+    return Ok({
+      outcome,
+      attendeeCount: attendingResult.value.length,
     });
   }
 
