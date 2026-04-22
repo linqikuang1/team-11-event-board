@@ -26,6 +26,8 @@ function createService() {
   );
 }
 
+
+
 // ── Feature 1 — Event Creation ────────────────────────────────────
 
 describe("EventService.createEvent", () => {
@@ -140,5 +142,127 @@ describe("EventService.createEvent", () => {
     if (result.ok) {
       expect(result.value.organizerId).toBe(staffCtx.userId);
     }
+  });
+});
+
+// ── Feature 4 — RSVP Testing ──────────────────────────────────── (thank you for the formatting feature 1)
+describe("EventService.toggleRsvp", () => {
+  async function seedPublishedEvent(capacity: number | null = null) {
+    const service = createService();
+    const draft = await service.createEvent(staffCtx, { ...validInput, capacity });
+    if (!draft.ok) throw new Error("seed failed: " + draft.value.message);
+    const pub = await service.publishEvent(staffCtx, draft.value.id);
+    if (!pub.ok) throw new Error("publish failed: " + pub.value.message);
+    return { service, event: pub.value };
+  }
+
+  it("happy path: member RSVPs to a published event", async () => {
+    const { service, event } = await seedPublishedEvent();
+    const result = await service.toggleRsvp(userCtx, event.id);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.outcome).toBe("attending");
+      expect(result.value.attendeeCount).toBe(1);
+    }
+  });
+
+  it("happy path: member is waitlisted when event is full", async () => {
+    const { service, event } = await seedPublishedEvent(1);
+    const userCtx2 = { userId: "user-member-2", role: "user" as const };
+    await service.toggleRsvp(userCtx, event.id);
+    const result = await service.toggleRsvp(userCtx2, event.id);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.outcome).toBe("waitlisted");
+      expect(result.value.attendeeCount).toBe(1);
+    }
+  });
+
+  it("happy path: second toggle cancels an active RSVP", async () => {
+    const { service, event } = await seedPublishedEvent();
+    await service.toggleRsvp(userCtx, event.id);
+    const result = await service.toggleRsvp(userCtx, event.id);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.outcome).toBe("cancelled");
+      expect(result.value.attendeeCount).toBe(0);
+    }
+  });
+
+  it("happy path: third toggle reactivates a cancelled RSVP", async () => {
+    const { service, event } = await seedPublishedEvent();
+    await service.toggleRsvp(userCtx, event.id);
+    await service.toggleRsvp(userCtx, event.id);
+    const result = await service.toggleRsvp(userCtx, event.id);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.outcome).toBe("attending");
+  });
+
+  it("happy path: reactivated RSVP lands on waitlist when now full", async () => {
+    const { service, event } = await seedPublishedEvent(1);
+    const userCtx2 = { userId: "user-member-2", role: "user" as const };
+    await service.toggleRsvp(userCtx, event.id);
+    await service.toggleRsvp(userCtx2, event.id);
+    await service.toggleRsvp(userCtx2, event.id);
+    const result = await service.toggleRsvp(userCtx2, event.id);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.outcome).toBe("waitlisted");
+  });
+
+  it("happy path: unlimited capacity never waitlists", async () => {
+    const { service, event } = await seedPublishedEvent(null);
+    for (let i = 0; i < 5; i++) {
+      const r = await service.toggleRsvp({ userId: `user-${i}`, role: "user" }, event.id);
+      expect(r.ok).toBe(true);
+      if (r.ok) expect(r.value.outcome).toBe("attending");
+    }
+  });
+
+  it("error: staff cannot RSVP", async () => {
+    const { service, event } = await seedPublishedEvent();
+    const result = await service.toggleRsvp(staffCtx, event.id);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.value.name).toBe("Forbidden");
+  });
+
+  it("error: admin cannot RSVP", async () => {
+    const { service, event } = await seedPublishedEvent();
+    const result = await service.toggleRsvp(adminCtx, event.id);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.value.name).toBe("Forbidden");
+  });
+
+  it("error: cannot RSVP to a draft event", async () => {
+    const service = createService();
+    const draft = await service.createEvent(staffCtx, validInput);
+    if (!draft.ok) throw new Error("seed failed");
+    const result = await service.toggleRsvp(userCtx, draft.value.id);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.value.name).toBe("UneditableStatus");
+  });
+
+  it("error: cannot RSVP to a cancelled event", async () => {
+    const { service, event } = await seedPublishedEvent();
+    await service.cancelEvent(staffCtx, event.id);
+    const result = await service.toggleRsvp(userCtx, event.id);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.value.name).toBe("UneditableStatus");
+  });
+
+  it("error: unknown event id returns EventNotFound", async () => {
+    const service = createService();
+    const result = await service.toggleRsvp(userCtx, "no-such-id");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.value.name).toBe("EventNotFound");
   });
 });
