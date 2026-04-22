@@ -33,7 +33,11 @@ export interface IEventController {
     session: IAppBrowserSession,
     isHtmxRequest?: boolean,
   ): Promise<void>;
-  showArchivePage(res: Response, session: IAppBrowserSession): Promise<void>;
+  showArchivePage(
+  res: Response,
+  session: IAppBrowserSession,
+  category?: string,
+): Promise<void>;
   showArchivePartial(
     res: Response,
     session: IAppBrowserSession,
@@ -481,11 +485,11 @@ class EventController implements IEventController {
       },
     });
   }
-    async showArchivePage(
-    res: Response,
-    session: IAppBrowserSession,
-    category: string = "",
-  ): Promise<void> {
+   async showArchivePage(
+  res: Response,
+  session: IAppBrowserSession,
+  category: string = "",
+): Promise<void> {
     const ctx = this.buildSessionContext(session);
 
     if (!ctx) {
