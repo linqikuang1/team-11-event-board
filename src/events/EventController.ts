@@ -335,15 +335,6 @@ class EventController implements IEventController {
     });
   }
 
-  /**
-   * POST /events/:id/publish
-   *
-   * Transitions a draft event to published. Responds with JSON on success so
-   * the page can update the status badge and action buttons inline.
-   *
-   * Response shape on success:
-   *   { status: "published" }
-   */
   async publishEvent(
     res: Response,
     eventId: string,
@@ -367,17 +358,13 @@ class EventController implements IEventController {
     }
  
     this.logger.info(`Event ${eventId} published by user ${ctx.userId}`);
-    res.redirect(`/events/${eventId}`);
+ 
+    res.status(200).render("events/partials/event_controls", {
+      layout: false,
+      event: result.value,
+    });
   }
  
-  /**
-   * POST /events/:id/cancel
-   *
-   * Permanently cancels a published event. Responds with JSON on success.
-   *
-   * Response shape on success:
-   *   { status: "cancelled" }
-   */
   async cancelEvent(
     res: Response,
     eventId: string,
@@ -401,7 +388,11 @@ class EventController implements IEventController {
     }
  
     this.logger.info(`Event ${eventId} cancelled by user ${ctx.userId}`);
-    res.redirect(`/events/${eventId}`);
+ 
+    res.status(200).render("events/partials/event_controls", {
+      layout: false,
+      event: result.value,
+    });
   }
 
   async showEventDetail(
