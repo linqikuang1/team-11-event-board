@@ -95,7 +95,7 @@ export interface IEventService {
   toggleRsvp(ctx: SessionContext, eventId: string): Promise<Result<ToggleRsvpResult, EventError>>;
   listAttendees(ctx: SessionContext, eventId: string): Promise<Result<AttendeeListResult, EventError>>;
   transitionExpiredEvents(ctx: SessionContext): Promise<Result<number, EventError>>;
-  getArchivedEvents(ctx: SessionContext): Promise<Result<IEventRecord[], EventError>>;
+  getArchivedEvents(ctx: SessionContext, category?: string): Promise<Result<IEventRecord[], EventError>>;
   getRsvpState(ctx: SessionContext, eventId: string,): Promise<Result<RsvpStateResult, EventError>>;
 }
 

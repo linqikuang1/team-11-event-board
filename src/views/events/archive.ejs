@@ -4,17 +4,29 @@
   <p><%= pageError %></p>
 <% } %>
 
-<% if (!events || events.length === 0) { %>
-  <p>No archived events yet.</p>
-<% } else { %>
-  <ul>
-    <% events.forEach((event) => { %>
-      <li>
-        <strong><%= event.title %></strong><br />
-        <span><%= event.location %></span><br />
-        <span>Ended: <%= event.endTime %></span><br />
-        <span>Status: <%= event.status %></span>
-      </li>
+<form action="/events/archive" method="get">
+  <label for="archive-category">Category:</label>
+  <select
+    id="archive-category"
+    name="category"
+    hx-get="/events/archive/filter"
+    hx-trigger="change"
+    hx-target="#archive-list"
+    hx-swap="innerHTML"
+  >
+    <option value="">All categories</option>
+    <% availableCategories.forEach((tag) => { %>
+      <option value="<%= tag %>" <%= category === tag ? "selected" : "" %>>
+        <%= tag %>
+      </option>
     <% }) %>
-  </ul>
-<% } %>
+  </select>
+
+  <noscript>
+    <button type="submit">Apply</button>
+  </noscript>
+</form>
+
+<div id="archive-list">
+  <%- include("../partials/archive_list", { events: events }) %>
+</div>

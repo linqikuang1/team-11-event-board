@@ -319,7 +319,7 @@ class ExpressApp implements IApp {
         await this.eventController.searchEventsPartial(res, filters, sessionStore(req));
       }),
     );
-     this.app.get(
+    this.app.get(
       "/events/archive",
       asyncHandler(async (req, res) => {
         if (!this.requireAuthenticated(req, res)) {
@@ -327,7 +327,20 @@ class ExpressApp implements IApp {
         }
 
         const browserSession = recordPageView(sessionStore(req));
-        await this.eventController.showArchivePage(res, browserSession);
+        const category = typeof req.query.category === "string" ? req.query.category : "";
+        await this.eventController.showArchivePage(res, browserSession, category);
+      }),
+    );
+    this.app.get(
+      "/events/archive/filter",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+
+        const browserSession = recordPageView(sessionStore(req));
+        const category = typeof req.query.category === "string" ? req.query.category : "";
+        await this.eventController.showArchivePartial(res, browserSession, category);
       }),
     );
     
