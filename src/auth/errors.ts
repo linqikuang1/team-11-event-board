@@ -6,7 +6,7 @@ export type AuthError =
   | { name: "UserNotFound"; message: string }
   | { name: "ProtectedUserOperation"; message: string }
   | { name: "ValidationError"; message: string }
-  | { name: "UnexpectedDependencyError"; message: string };
+  | { name: "UnexpectedDependencyError"; message: string }
 
 export const InvalidCredentials = (message: string): AuthError => ({
   name: "InvalidCredentials",
@@ -47,3 +47,4 @@ export const UnexpectedDependencyError = (message: string): AuthError => ({
   name: "UnexpectedDependencyError",
   message,
 });
+

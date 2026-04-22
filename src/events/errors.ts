@@ -6,7 +6,8 @@ export type EventError =
   | { name: "UneditableStatus"; message: string }
   | { name: "UnexpectedDependencyError"; message: string }
   | { name: "InvalidTransition"; message: string }
-  | { name: "EventFull"; message: string };
+  | { name: "EventFull"; message: string }
+  | { name: "InvalidRsvpTransition"; message: string };
 
 export const Forbidden = (message: string): EventError => ({
   name: "Forbidden",
@@ -43,7 +44,6 @@ export const EventFull = (message: string): EventError => ({
   message,
 });
  
-
 export const UnexpectedDependencyError = (message: string): EventError => ({
   name: "UnexpectedDependencyError",
   message,
@@ -53,3 +53,8 @@ export const InvalidTransition = (message: string): EventError => ({
   name: "InvalidTransition",
   message,
 });
+
+export const InvalidRsvpTransition = (message: string): EventError => ({
+  name: "InvalidRsvpTransition",
+  message,
+})
