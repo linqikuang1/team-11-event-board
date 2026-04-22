@@ -1,0 +1,40 @@
+<div id="rsvp-zone" class="pt-4 border-t border-slate-200">
+  <% if (!readonly) { %>
+    <div class="flex items-center gap-3 flex-wrap">
+      <button
+        class="px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-colors <%= btnStyle %>"
+        hx-post="/events/<%= eventId %>/rsvp"
+        hx-target="#rsvp-zone"
+        hx-swap="outerHTML"
+        hx-disabled-elt="this"
+      >
+        <%= label %>
+      </button>
+
+      <span class="text-sm text-slate-500">
+        <% if (capacity !== null) { %>
+          <%= attendeeCount %> / <%= capacity %> attending
+          <% if (isFull && !isActive) { %>&mdash; <span class="text-amber-600 font-medium">Full</span><% } %>
+        <% } else { %>
+          <%= attendeeCount %> attending
+        <% } %>
+      </span>
+
+      <% if (outcome === "waitlisted") { %>
+        <span class="text-xs bg-amber-100 text-amber-700 px-2.5 py-0.5 rounded-full font-medium">You are waitlisted</span>
+      <% } %>
+      <% if (outcome === "attending") { %>
+        <span class="text-xs bg-green-100 text-green-700 px-2.5 py-0.5 rounded-full font-medium">You are attending</span>
+      <% } %>
+    </div>
+  <% } else { %>
+    <%# Non-member or event not RSVPable: show count only %>
+    <p class="text-sm text-slate-500">
+      <% if (capacity !== null) { %>
+        <%= attendeeCount %> / <%= capacity %> attending
+      <% } else { %>
+        <%= attendeeCount %> attending
+      <% } %>
+    </p>
+  <% } %>
+</div>

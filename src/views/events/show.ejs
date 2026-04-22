@@ -95,17 +95,13 @@
     <% } %>
 
     <% if (session.authenticatedUser?.role === "user") { %>
-      <div class="pt-4 border-t border-slate-200 flex gap-3">
-        <form method="post" action="/events/<%= event.id %>/rsvp">
-          <button
-            type="submit"
-            class="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700"
-          >
-            RSVP to this event
-          </button>
-        </form>
-        <%- include("../saved/partials/save-toggle", { eventId: event.id, isSaved: false }) %>
-      </div>
+      <%- include("../events/partials/rsvp_button", {
+        eventId:      event.id,
+        outcome:      rsvpOutcome,
+        attendeeCount: attendeeCount,
+        capacity:     event.capacity,
+        readonly:     event.status !== "published" || new Date(event.startTime) <= new Date(),
+      }) %>
     <% } %>
 
   </div>
