@@ -102,6 +102,10 @@
         capacity:     event.capacity,
         readonly:     event.status !== "published" || new Date(event.startTime) <= new Date(),
       }) %>
+
+      <div class="mt-3">
+        <%- include("../saved/partials/save-toggle", { eventId: event.id, isSaved: (typeof isSaved === "boolean" ? isSaved : false) }) %>
+      </div>
     <% } %>
 
   </div>

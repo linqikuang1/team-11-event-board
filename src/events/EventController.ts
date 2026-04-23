@@ -6,6 +6,7 @@ import type {
   SessionContext,
   EventFilterInput,
 } from "./EventService";
+import type { ISavedEventService } from "../saved/SavedEventService";
 import type { IAppBrowserSession, AppSessionStore } from "../session/AppSession";
 import { touchAppSession } from "../session/AppSession";
 import type { ILoggingService } from "../service/LoggingService";
@@ -48,6 +49,7 @@ export interface IEventController {
 class EventController implements IEventController {
   constructor(
     private readonly service: IEventService,
+    private readonly savedEvents: ISavedEventService,
     private readonly logger: ILoggingService,
   ) {}
 
@@ -430,7 +432,21 @@ class EventController implements IEventController {
     }
 
     this.logger.info(`GET /events/${eventId} for ${ctx.userId}`);
-    res.render("events/show", { session, event: result.value });
+    let isSaved = false;
+    if (ctx.role === "user") {
+      const savedResult = await this.savedEvents.isEventSaved(ctx, eventId);
+      if (savedResult.ok === false) {
+        this.logger.warn(`Saved status lookup failed: ${savedResult.value.message}`);
+        res.status(500).render("partials/error", {
+          message: savedResult.value.message,
+          layout: false,
+        });
+        return;
+      }
+      isSaved = savedResult.value;
+    }
+
+    res.render("events/show", { session, event: result.value, isSaved });
   }
 
   async showAttendeeList(
@@ -574,7 +590,8 @@ class EventController implements IEventController {
 
 export function CreateEventController(
   service: IEventService,
+  savedEvents: ISavedEventService,
   logger: ILoggingService,
 ): IEventController {
-  return new EventController(service, logger);
+  return new EventController(service, savedEvents, logger);
 }
