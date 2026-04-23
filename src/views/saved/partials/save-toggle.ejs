@@ -1,0 +1,15 @@
+<div id="save-toggle">
+  <form
+    hx-post="/events/<%= eventId %>/save"
+    hx-target="#save-toggle"
+    hx-swap="outerHTML"
+    method="post"
+  >
+    <button
+      type="submit"
+      class="<%= isSaved ? 'px-4 py-2.5 rounded-lg border border-red-200 text-red-600 font-medium hover:bg-red-50' : 'px-4 py-2.5 rounded-lg border border-slate-300 text-slate-600 font-medium hover:bg-slate-50' %>"
+    >
+      <%= isSaved ? "Unsave" : "Save for Later" %>
+    </button>
+  </form>
+</div>

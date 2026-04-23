@@ -1,0 +1,39 @@
+<div id="event-controls" class="flex gap-2 flex-shrink-0 flex-wrap">
+  <a
+    href="/events/<%= event.id %>/attendees"
+    class="px-4 py-2 rounded-lg border border-slate-300 text-slate-600 text-sm font-medium hover:bg-slate-50 no-underline"
+  >Attendees</a>
+
+  <% if (event.status === "draft" || event.status === "published") { %>
+    <a
+      href="/events/<%= event.id %>/edit"
+      class="px-4 py-2 rounded-lg border border-slate-300 text-slate-600 text-sm font-medium hover:bg-slate-50 no-underline"
+    >Edit</a>
+  <% } %>
+
+  <% if (event.status === "draft") { %>
+    <button
+      class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 cursor-pointer"
+      hx-post="/events/<%= event.id %>/publish"
+      hx-target="#event-controls"
+      hx-swap="outerHTML"
+      hx-confirm="Publish this event? It will become visible to all members."
+      hx-disabled-elt="this"
+    >Publish</button>
+  <% } %>
+
+  <% if (event.status === "published") { %>
+    <button
+      class="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 cursor-pointer"
+      hx-post="/events/<%= event.id %>/cancel"
+      hx-target="#event-controls"
+      hx-swap="outerHTML"
+      hx-confirm="Cancel this event? This cannot be undone."
+      hx-disabled-elt="this"
+    >Cancel Event</button>
+  <% } %>
+
+  <% if (event.status === "cancelled" || event.status === "concluded") { %>
+    <span class="text-sm text-slate-400 italic self-center">No further actions available.</span>
+  <% } %>
+</div>

@@ -8,6 +8,7 @@ import type { IApp } from "./contracts";
 import { CreateLoggingService } from "./service/LoggingService";
 import type { ILoggingService } from "./service/LoggingService";
 import { CreateInMemoryEventRepository } from "./events/InMemoryEventRepository";
+import { CreateInMemoryRsvpRepository } from "./events/InMemoryRsvpRepository";
 import { CreateEventService } from "./events/EventService";
 import { CreateEventController } from "./events/EventController";
 import { CreateInMemoryCommentRepository } from "./comments/InMemoryCommentRepository";
@@ -25,21 +26,27 @@ export function createComposedApp(logger?: ILoggingService): IApp {
   const passwordHasher = CreatePasswordHasher();
   const authService = CreateAuthService(authUsers, passwordHasher);
   const adminUserService = CreateAdminUserService(authUsers, passwordHasher);
-  const authController = CreateAuthController(authService, adminUserService, resolvedLogger);
+  const authController = CreateAuthController(
+    authService,
+    adminUserService,
+    resolvedLogger,
+  );
 
   // Event wiring
   const eventRepository = CreateInMemoryEventRepository();
-  const eventService = CreateEventService(eventRepository);
-  const eventController = CreateEventController(eventService, resolvedLogger);
+  const rsvpRepository = CreateInMemoryRsvpRepository();
+  const eventService = CreateEventService(eventRepository, rsvpRepository, authUsers);
+  // Saved event wiring
+  const savedEventRepository = CreateInMemorySavedEventRepository();
+  const savedEventService = CreateSavedEventService(savedEventRepository, eventRepository);
+
+  const eventController = CreateEventController(eventService, savedEventService, resolvedLogger);
 
   // Comment wiring
   const commentRepository = CreateInMemoryCommentRepository();
   const commentService = CreateCommentService(commentRepository, eventRepository);
   const commentController = CreateCommentController(commentService, resolvedLogger);
 
-  // Saved event wiring
-  const savedEventRepository = CreateInMemorySavedEventRepository();
-  const savedEventService = CreateSavedEventService(savedEventRepository, eventRepository);
   const savedEventController = CreateSavedEventController(savedEventService, resolvedLogger);
 
   return CreateApp(authController, eventController, commentController, savedEventController, resolvedLogger);

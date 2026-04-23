@@ -1,0 +1,32 @@
+<h1>Past Events Archive</h1>
+
+<% if (pageError) { %>
+  <p><%= pageError %></p>
+<% } %>
+
+<form action="/events/archive" method="get">
+  <label for="archive-category">Category:</label>
+  <select
+    id="archive-category"
+    name="category"
+    hx-get="/events/archive/filter"
+    hx-trigger="change"
+    hx-target="#archive-list"
+    hx-swap="innerHTML"
+  >
+    <option value="">All categories</option>
+    <% availableCategories.forEach((tag) => { %>
+      <option value="<%= tag %>" <%= category === tag ? "selected" : "" %>>
+        <%= tag %>
+      </option>
+    <% }) %>
+  </select>
+
+  <noscript>
+    <button type="submit">Apply</button>
+  </noscript>
+</form>
+
+<div id="archive-list">
+  <%- include("../partials/archive_list", { events: events }) %>
+</div>

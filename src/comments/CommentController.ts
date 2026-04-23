@@ -18,6 +18,7 @@ export interface ICommentController {
     eventId: string,
     content: string,
     session: IAppBrowserSession,
+    isHtmx?: boolean,
   ): Promise<void>;
 
   deleteComment(
@@ -25,6 +26,7 @@ export interface ICommentController {
     eventId: string,
     commentId: string,
     session: IAppBrowserSession,
+    isHtmx?: boolean,
   ): Promise<void>;
 }
 
@@ -91,6 +93,7 @@ class CommentController implements ICommentController {
     eventId: string,
     content: string,
     session: IAppBrowserSession,
+    isHtmx = false,
   ): Promise<void> {
     const user = session.authenticatedUser;
 
@@ -122,6 +125,11 @@ class CommentController implements ICommentController {
     }
 
     this.logger.info(`Comment ${result.value.id} posted on event ${eventId}`);
+
+    if (isHtmx) {
+      await this.renderCommentListPartial(res, ctx, eventId, session);
+      return;
+    }
     res.redirect(`/events/${eventId}/comments`);
   }
 
@@ -130,6 +138,7 @@ class CommentController implements ICommentController {
     eventId: string,
     commentId: string,
     session: IAppBrowserSession,
+    isHtmx = false,
   ): Promise<void> {
     const user = session.authenticatedUser;
 
@@ -161,7 +170,35 @@ class CommentController implements ICommentController {
     }
 
     this.logger.info(`Comment ${commentId} deleted from event ${eventId}`);
+
+    if (isHtmx) {
+      await this.renderCommentListPartial(res, ctx, eventId, session);
+      return;
+    }
     res.redirect(`/events/${eventId}/comments`);
+  }
+
+  private async renderCommentListPartial(
+    res: Response,
+    ctx: SessionContext,
+    eventId: string,
+    session: IAppBrowserSession,
+  ): Promise<void> {
+    const listResult = await this.service.listComments(ctx, eventId);
+    if (listResult.ok === false) {
+      res.status(500).render("partials/error", {
+        message: listResult.value.message,
+        layout: false,
+      });
+      return;
+    }
+    res.render("comments/partials/comment-list", {
+      comments: listResult.value,
+      currentUserId: ctx.userId,
+      session,
+      eventId,
+      layout: false,
+    });
   }
 }
 

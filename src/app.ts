@@ -275,9 +275,33 @@ class ExpressApp implements IApp {
           return;
         }
         const browserSession = recordPageView(sessionStore(req));
-        const query = typeof req.query.q === "string" ? req.query.q : "";
+        const filters = {
+          q: typeof req.query.q === "string" ? req.query.q : "",
+          category: typeof req.query.category === "string" ? req.query.category : "",
+          timeframe: typeof req.query.timeframe === "string" ? req.query.timeframe : "all",
+        };
         const successMessage = typeof req.query.success === "string" ? req.query.success : null;
-        await this.eventController.showEventsPage(res, browserSession, query, successMessage);
+        await this.eventController.showEventsPage(res, browserSession, filters, successMessage);
+      }),
+    );
+
+    this.app.get(
+      "/events/:id/rsvp",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+
+        const browserSession = recordPageView(sessionStore(req));
+        const filters = {
+          q: typeof req.query.q === "string" ? req.query.q : "",
+          category: typeof req.query.category === "string" ? req.query.category : "",
+          timeframe: typeof req.query.timeframe === "string" ? req.query.timeframe : "all",
+        };
+        await this.eventController.showEventsPage(res, browserSession, filters);
+        const eventId =
+          typeof req.params.id === "string" ? req.params.id : "";
+        await this.eventController.toggleRsvp(res, eventId, sessionStore(req));
       }),
     );
     
@@ -287,8 +311,36 @@ class ExpressApp implements IApp {
         if (!this.requireAuthenticated(req, res)) {
           return;
         }
-        const query = typeof req.query.q === "string" ? req.query.q : "";
-        await this.eventController.searchEventsPartial(res, query, sessionStore(req));
+        const filters = {
+          q: typeof req.query.q === "string" ? req.query.q : "",
+          category: typeof req.query.category === "string" ? req.query.category : "",
+          timeframe: typeof req.query.timeframe === "string" ? req.query.timeframe : "all",
+        };
+        await this.eventController.searchEventsPartial(res, filters, sessionStore(req));
+      }),
+    );
+    this.app.get(
+      "/events/archive",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+
+        const browserSession = recordPageView(sessionStore(req));
+        const category = typeof req.query.category === "string" ? req.query.category : "";
+        await this.eventController.showArchivePage(res, browserSession, category);
+      }),
+    );
+    this.app.get(
+      "/events/archive/filter",
+      asyncHandler(async (req, res) => {
+        if (!this.requireAuthenticated(req, res)) {
+          return;
+        }
+
+        const browserSession = recordPageView(sessionStore(req));
+        const category = typeof req.query.category === "string" ? req.query.category : "";
+        await this.eventController.showArchivePartial(res, browserSession, category);
       }),
     );
     
@@ -303,6 +355,31 @@ class ExpressApp implements IApp {
         await this.eventController.showEventDetail(res, eventId, browserSession);
       }),
     );    
+
+    this.app.get(
+      "/events/:id/attendees",
+      asyncHandler(async (req, res) => {
+        if (
+          !this.requireRole(
+            req,
+            res,
+            ["staff", "admin"],
+            "Only organizers and admins can view attendee lists.",
+          )
+        ) {
+          return;
+        }
+
+        const browserSession = recordPageView(sessionStore(req));
+        const eventId = typeof req.params.id === "string" ? req.params.id : "";
+        await this.eventController.showAttendeeList(
+          res,
+          eventId,
+          browserSession,
+          this.isHtmxRequest(req),
+        );
+      }),
+    );
 
     this.app.get(
       "/events/:id/edit",
@@ -347,8 +424,12 @@ class ExpressApp implements IApp {
           return;
         }
 
-        const query = typeof req.query.q === "string" ? req.query.q : "";
-        await this.eventController.searchEventsPartial(res, query, sessionStore(req));
+        const filters = {
+          q: typeof req.query.q === "string" ? req.query.q : "",
+          category: typeof req.query.category === "string" ? req.query.category : "",
+          timeframe: typeof req.query.timeframe === "string" ? req.query.timeframe : "all",
+        };
+        await this.eventController.searchEventsPartial(res, filters, sessionStore(req));
       }),
     );
 
@@ -375,7 +456,7 @@ class ExpressApp implements IApp {
         const eventId = typeof req.params.id === "string" ? req.params.id : "";
         const content = typeof req.body.content === "string" ? req.body.content : "";
         const session = touchAppSession(sessionStore(req));
-        await this.commentController.postComment(res, eventId, content, session);
+        await this.commentController.postComment(res, eventId, content, session, this.isHtmxRequest(req));
       }),
     );
 
@@ -388,7 +469,7 @@ class ExpressApp implements IApp {
         const eventId = typeof req.params.id === "string" ? req.params.id : "";
         const commentId = typeof req.params.commentId === "string" ? req.params.commentId : "";
         const session = touchAppSession(sessionStore(req));
-        await this.commentController.deleteComment(res, eventId, commentId, session);
+        await this.commentController.deleteComment(res, eventId, commentId, session, this.isHtmxRequest(req));
       }),
     );
 
@@ -413,12 +494,17 @@ class ExpressApp implements IApp {
         }
         const eventId = typeof req.params.id === "string" ? req.params.id : "";
         const session = touchAppSession(sessionStore(req));
-        await this.savedEventController.toggleSave(res, eventId, session);
+        await this.savedEventController.toggleSave(
+          res,
+          eventId,
+          session,
+          this.isHtmxRequest(req),
+        );
       }),
     );
 
     // ── Authenticated home page ──────────────────────────────────────
-    // TODO: Replace this placeholder with your project's main page.
+    //
 
     this.app.get(
       "/home",

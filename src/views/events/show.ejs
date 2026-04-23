@@ -14,6 +14,15 @@
 
     <% if (session.authenticatedUser?.role === "staff" || session.authenticatedUser?.role === "admin") { %>
       <div class="flex gap-2 flex-shrink-0">
+        <button
+          type="button"
+          hx-get="/events/<%= event.id %>/attendees"
+          hx-target="#attendee-list-inline"
+          hx-swap="innerHTML"
+          class="px-4 py-2 rounded-lg border border-slate-300 text-slate-600 text-sm font-medium hover:bg-slate-50"
+        >
+          Attendees
+        </button>
         <% if (event.status === "draft" || event.status === "published") { %>
             <a href="/events/<%= event.id %>/edit" class="px-4 py-2 rounded-lg border border-slate-300 text-slate-600 text-sm font-medium hover:bg-slate-50">Edit</a>
         <% } %>
@@ -86,28 +95,25 @@
     <% } %>
 
     <% if (session.authenticatedUser?.role === "user") { %>
-      <div class="pt-4 border-t border-slate-200 flex gap-3">
-        <form method="post" action="/events/<%= event.id %>/rsvp">
-          <button
-            type="submit"
-            class="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700"
-          >
-            RSVP to this event
-          </button>
-        </form>
-        <form method="post" action="/events/<%= event.id %>/save">
-          <button
-            type="submit"
-            class="px-4 py-2.5 rounded-lg border border-slate-300 text-slate-600 font-medium hover:bg-slate-50"
-          >
-            Save for Later
-          </button>
-        </form>
+      <%- include("../events/partials/rsvp_button", {
+        eventId:      event.id,
+        outcome:      rsvpOutcome,
+        attendeeCount: attendeeCount,
+        capacity:     event.capacity,
+        readonly:     event.status !== "published" || new Date(event.startTime) <= new Date(),
+      }) %>
+
+      <div class="mt-3">
+        <%- include("../saved/partials/save-toggle", { eventId: event.id, isSaved: (typeof isSaved === "boolean" ? isSaved : false) }) %>
       </div>
     <% } %>
 
   </div>
 </section>
+
+<% if (session.authenticatedUser?.role === "staff" || session.authenticatedUser?.role === "admin") { %>
+  <section id="attendee-list-inline" class="mt-5"></section>
+<% } %>
 
 <section class="mt-5 max-w-3xl p-6 border border-slate-200 rounded-2xl bg-white shadow-lg">
   <div class="flex items-center justify-between mb-4">

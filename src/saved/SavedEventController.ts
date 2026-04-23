@@ -10,6 +10,7 @@ export interface ISavedEventController {
     res: Response,
     eventId: string,
     session: IAppBrowserSession,
+    isHtmx?: boolean,
   ): Promise<void>;
 
   showSavedEvents(
@@ -28,6 +29,7 @@ class SavedEventController implements ISavedEventController {
     res: Response,
     eventId: string,
     session: IAppBrowserSession,
+    isHtmx = false,
   ): Promise<void> {
     const user = session.authenticatedUser;
 
@@ -59,6 +61,15 @@ class SavedEventController implements ISavedEventController {
 
     const action = result.value.saved ? "saved" : "unsaved";
     this.logger.info(`Event ${eventId} ${action} by user ${ctx.userId}`);
+
+    if (isHtmx) {
+      res.render("saved/partials/save-toggle", {
+        eventId,
+        isSaved: result.value.saved,
+        layout: false,
+      });
+      return;
+    }
     res.redirect("/saved");
   }
 
