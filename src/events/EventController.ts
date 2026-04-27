@@ -98,42 +98,45 @@ class EventController implements IEventController {
     res.render("events/create", { pageError, session });
   }
 
-  async createFromForm(
-    res: Response,
-    input: CreateEventInput,
-    store: AppSessionStore,
-  ): Promise<void> {
-    const session = touchAppSession(store);
-    const user = session.authenticatedUser;
+async createFromForm(
+  res: Response,
+  input: CreateEventInput,
+  store: AppSessionStore,
+): Promise<void> {
+  const session = touchAppSession(store);
+  const user = session.authenticatedUser;
 
-    if (!user) {
-      res.status(401).render("partials/error", {
-        message: "Please log in to continue.",
-        layout: false,
-      });
-      return;
-    }
-
-    const ctx: SessionContext = {
-      userId: user.userId,
-      role: user.role as SessionContext["role"],
-    };
-
-    const result = await this.service.createEvent(ctx, input);
-
-    if (result.ok === false) {
-      const error = result.value;
-      const status = this.mapErrorStatus(error);
-      const log = status >= 500 ? this.logger.error : this.logger.warn;
-      log.call(this.logger, `Create event failed: ${error.message}`);
-      res.status(status);
-      await this.showCreateForm(res, session, error.message);
-      return;
-    }
-
-    this.logger.info(`Created event ${result.value.id}`);
-    res.redirect("/events?success=Event+created+successfully");
+  if (!user) {
+    res.status(401).render("partials/error", {
+      message: "Please log in to continue.",
+      layout: false,
+    });
+    return;
   }
+
+  const ctx: SessionContext = {
+    userId: user.userId,
+    role: user.role as SessionContext["role"],
+  };
+
+  const result = await this.service.createEvent(ctx, input);
+
+  if (result.ok === false) {
+    const error = result.value;
+    const status = this.mapErrorStatus(error);
+    const log = status >= 500 ? this.logger.error : this.logger.warn;
+    log.call(this.logger, `Create event failed: ${error.message}`);
+    res.status(status).render("partials/error", {
+      message: error.message,
+      layout: false,
+    });
+    return;
+  }
+
+  this.logger.info(`Created event ${result.value.id}`);
+  res.setHeader("HX-Redirect", "/events?success=Event+created+successfully");
+  res.status(200).send();
+}
 
   async toggleRsvp(
     res: Response,
