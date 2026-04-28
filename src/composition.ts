@@ -8,7 +8,6 @@ import type { IApp } from "./contracts";
 import { CreateLoggingService } from "./service/LoggingService";
 import type { ILoggingService } from "./service/LoggingService";
 import { CreatePrismaEventRepository } from "./events/PrismaEventRepository";
-import { PrismaClient } from "@prisma/client";
 import { CreateInMemoryEventRepository } from "./events/InMemoryEventRepository";
 import { CreateInMemoryRsvpRepository } from "./events/InMemoryRsvpRepository";
 import { CreateEventService } from "./events/EventService";
@@ -32,8 +31,7 @@ export function createComposedApp(logger?: ILoggingService): IApp {
   const adminUserService = CreateAdminUserService(authUsers, passwordHasher);
   const authController = CreateAuthController(authService, adminUserService, resolvedLogger);
 
-  const db = new PrismaClient();
-  const eventRepository = CreatePrismaEventRepository(db);
+  const eventRepository = CreatePrismaEventRepository(prisma);
   const rsvpRepository = CreateInMemoryRsvpRepository();
   const eventService = CreateEventService(eventRepository, rsvpRepository, authUsers);
 
