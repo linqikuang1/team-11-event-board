@@ -372,7 +372,7 @@ async createFromForm(
  
     this.logger.info(`Event ${eventId} published by user ${ctx.userId}`);
  
-    res.status(200).render("events/partials/event_controls", {
+    res.status(200).render("events/partials/event-controls", {
       layout: false,
       event: result.value,
     });
@@ -402,7 +402,7 @@ async createFromForm(
  
     this.logger.info(`Event ${eventId} cancelled by user ${ctx.userId}`);
  
-    res.status(200).render("events/partials/event_controls", {
+    res.status(200).render("events/partials/event-controls", {
       layout: false,
       event: result.value,
     });
@@ -449,7 +449,23 @@ async createFromForm(
       isSaved = savedResult.value;
     }
 
-    res.render("events/show", { session, event: result.value, isSaved });
+    let attendeeCount = 0;
+    let rsvpOutcome: unknown = null;
+    const rsvpStateResult = await this.service.getRsvpState(ctx, eventId);
+    if (rsvpStateResult.ok === true) {
+      attendeeCount = rsvpStateResult.value.attendeeCount;
+      rsvpOutcome = rsvpStateResult.value.outcome;
+    } else {
+      this.logger.warn(`RSVP state lookup failed: ${rsvpStateResult.value.message}`);
+    }
+
+    res.render("events/show", {
+      session,
+      event: result.value,
+      isSaved,
+      attendeeCount,
+      rsvpOutcome,
+    });
   }
 
   async showAttendeeList(
