@@ -1,8 +1,8 @@
 import { Err, Ok, type Result } from "../lib/result";
 import { UnexpectedDependencyError, type EventError } from "./errors";
-import type { IEventRepository } from "./EventRepository";
+import type { EventListQuery, IEventRepository } from "./EventRepository";
 import type { IEventRecord, EventStatus } from "./Event";
-import type { PrismaClient, Event as PrismaEvent } from "@prisma/client";
+import { Prisma, type PrismaClient, type Event as PrismaEvent } from "@prisma/client";
 
 
 function serializeTags(tags: string[]): string {
@@ -92,6 +92,51 @@ class PrismaEventRepository implements IEventRepository {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return Err(UnexpectedDependencyError(`Unable to list events: ${message}`));
+    }
+  }
+
+  async findUpcomingPublished(query: EventListQuery): Promise<Result<IEventRecord[], EventError>> {
+    try {
+      const where: Prisma.EventWhereInput = {
+        status: "published",
+        endTime: { gt: query.nowIso },
+      };
+
+      if (query.q && query.q.length > 0) {
+        where.OR = [
+          { title: { contains: query.q, mode: "insensitive" } },
+          { description: { contains: query.q, mode: "insensitive" } },
+          { location: { contains: query.q, mode: "insensitive" } },
+        ];
+      }
+
+      if (query.category) {
+        const normalizedCategory = query.category.trim().toLowerCase();
+        const categoryJson = JSON.stringify([normalizedCategory]).slice(1, -1);
+        where.tags = {
+          contains: categoryJson,
+          mode: "insensitive",
+        };
+      }
+
+      if (query.startTimeFromIso || query.startTimeToIso) {
+        where.startTime = {
+          ...(query.startTimeFromIso ? { gte: query.startTimeFromIso } : {}),
+          ...(query.startTimeToIso ? { lte: query.startTimeToIso } : {}),
+        };
+      }
+
+      const rows = await this.db.event.findMany({
+        where,
+        orderBy: {
+          startTime: "asc",
+        },
+      });
+
+      return Ok(rows.map(toRecord));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return Err(UnexpectedDependencyError(`Unable to list filtered events: ${message}`));
     }
   }
 
