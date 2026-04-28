@@ -417,22 +417,6 @@ class ExpressApp implements IApp {
       }),
     );
 
-    this.app.get(
-      "/events/search",
-      asyncHandler(async (req, res) => {
-        if (!this.requireAuthenticated(req, res)) {
-          return;
-        }
-
-        const filters = {
-          q: typeof req.query.q === "string" ? req.query.q : "",
-          category: typeof req.query.category === "string" ? req.query.category : "",
-          timeframe: typeof req.query.timeframe === "string" ? req.query.timeframe : "all",
-        };
-        await this.eventController.searchEventsPartial(res, filters, sessionStore(req));
-      }),
-    );
-
     // ── Comment routes ──────────────────────────────────────────────
 
     this.app.get(

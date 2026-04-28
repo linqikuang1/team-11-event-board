@@ -120,4 +120,35 @@ describe("GET /events/search", () => {
 
     expect(res.status).toBe(400);
   });
+
+  it("error: invalid category returns 400", async () => {
+    const app = buildApp();
+    const cookie = await loginAs(app, USER_EMAIL, PASSWORD);
+
+    const res = await request(app)
+      .get("/events/search")
+      .set("Cookie", cookie)
+      .query({ category: "Music!!" });
+
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("GET /events", () => {
+  it("renders filter state from query params for bookmarkable URLs", async () => {
+    const app = buildApp();
+    const cookie = await loginAs(app, USER_EMAIL, PASSWORD);
+
+    const res = await request(app)
+      .get("/events")
+      .set("Cookie", cookie)
+      .query({ q: "music", timeframe: "weekend" });
+
+    expect(res.status).toBe(200);
+    expect(res.text).toContain('name="q"');
+    expect(res.text).toContain('value="music"');
+    expect(res.text).toContain('option value="weekend" selected');
+    expect(res.text).toContain('method="get"');
+    expect(res.text).toContain('action="/events"');
+  });
 });
