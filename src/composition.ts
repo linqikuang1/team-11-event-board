@@ -17,6 +17,8 @@ import { CreatePrismaCommentRepository } from "./comments/PrismaCommentRepositor
 import { CreateCommentService } from "./comments/CommentService";
 import { CreateCommentController } from "./comments/CommentController";
 import { CreatePrismaSavedEventRepository } from "./saved/PrismaSavedEventRepository";
+import { CreateInMemoryCommentRepository } from "./comments/InMemoryCommentRepository";
+import { CreateInMemorySavedEventRepository } from "./saved/InMemorySavedEventRepository";
 import { CreateSavedEventService } from "./saved/SavedEventService";
 import { CreateSavedEventController } from "./saved/SavedEventController";
 import { prisma } from "./prisma/client";
@@ -35,13 +37,11 @@ export function createComposedApp(logger?: ILoggingService): IApp {
   const rsvpRepository = CreateInMemoryRsvpRepository();
   const eventService = CreateEventService(eventRepository, rsvpRepository, authUsers);
 
-  const savedEventRepository = CreateInMemorySavedEventRepository();
-  // Saved event wiring
   const savedEventRepository = CreatePrismaSavedEventRepository(prisma);
   const savedEventService = CreateSavedEventService(savedEventRepository, eventRepository);
   const eventController = CreateEventController(eventService, savedEventService, resolvedLogger);
 
-  const commentRepository = CreateInMemoryCommentRepository();
+  const commentRepository = CreatePrismaCommentRepository(prisma);
   const commentService = CreateCommentService(commentRepository, eventRepository);
   const commentController = CreateCommentController(commentService, resolvedLogger);
 
@@ -68,8 +68,6 @@ export function createTestComposedApp(logger?: ILoggingService): IApp {
   const eventController = CreateEventController(eventService, savedEventService, resolvedLogger);
 
   const commentRepository = CreateInMemoryCommentRepository();
-  // Comment wiring
-  const commentRepository = CreatePrismaCommentRepository(prisma);
   const commentService = CreateCommentService(commentRepository, eventRepository);
   const commentController = CreateCommentController(commentService, resolvedLogger);
 
