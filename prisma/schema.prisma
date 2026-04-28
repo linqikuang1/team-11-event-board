@@ -16,3 +16,14 @@ model Comment {
   @@index([eventId, createdAt])
   @@index([userId, createdAt])
 }
+
+model SavedEvent {
+  id      String   @id @default(uuid())
+  eventId String
+  userId  String
+  savedAt DateTime @default(now())
+
+  @@unique([userId, eventId])
+  @@index([userId, savedAt])
+  @@index([eventId])
+}
