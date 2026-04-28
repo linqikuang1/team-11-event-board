@@ -1,9 +1,9 @@
 import request from "supertest";
 import { type Express } from "express";
-import { createComposedApp } from "../../src/composition";
+import { createTestComposedApp } from "../../src/composition";
 
 function buildApp() {
-  return createComposedApp().getExpressApp();
+  return createTestComposedApp().getExpressApp();
 }
 
 // Helper to log in and get a session cookie
@@ -48,8 +48,8 @@ describe("POST /events/create", () => {
       .type("form")
       .send(validFormData);
 
-    expect(res.status).toBe(302);
-    expect(res.headers.location).toContain("/events");
+    expect(res.status).toBe(200);
+    expect(res.headers["hx-redirect"]).toContain("/events");
   });
 
   it("error: member cannot access the create form", async () => {
@@ -85,6 +85,7 @@ describe("POST /events/create", () => {
     expect(res.status).toBe(400);
   });
 });
+
 describe("GET /events/search", () => {
   it("happy path: authenticated user can load search partial", async () => {
     const app = buildApp();
