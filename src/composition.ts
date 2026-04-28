@@ -13,12 +13,13 @@ import { CreateInMemoryEventRepository } from "./events/InMemoryEventRepository"
 import { CreateInMemoryRsvpRepository } from "./events/InMemoryRsvpRepository";
 import { CreateEventService } from "./events/EventService";
 import { CreateEventController } from "./events/EventController";
-import { CreateInMemoryCommentRepository } from "./comments/InMemoryCommentRepository";
+import { CreatePrismaCommentRepository } from "./comments/PrismaCommentRepository";
 import { CreateCommentService } from "./comments/CommentService";
 import { CreateCommentController } from "./comments/CommentController";
-import { CreateInMemorySavedEventRepository } from "./saved/InMemorySavedEventRepository";
+import { CreatePrismaSavedEventRepository } from "./saved/PrismaSavedEventRepository";
 import { CreateSavedEventService } from "./saved/SavedEventService";
 import { CreateSavedEventController } from "./saved/SavedEventController";
+import { prisma } from "./prisma/client";
 
 export function createComposedApp(logger?: ILoggingService): IApp {
   const resolvedLogger = logger ?? CreateLoggingService();
@@ -35,6 +36,8 @@ export function createComposedApp(logger?: ILoggingService): IApp {
   const eventService = CreateEventService(eventRepository, rsvpRepository, authUsers);
 
   const savedEventRepository = CreateInMemorySavedEventRepository();
+  // Saved event wiring
+  const savedEventRepository = CreatePrismaSavedEventRepository(prisma);
   const savedEventService = CreateSavedEventService(savedEventRepository, eventRepository);
   const eventController = CreateEventController(eventService, savedEventService, resolvedLogger);
 
@@ -65,6 +68,8 @@ export function createTestComposedApp(logger?: ILoggingService): IApp {
   const eventController = CreateEventController(eventService, savedEventService, resolvedLogger);
 
   const commentRepository = CreateInMemoryCommentRepository();
+  // Comment wiring
+  const commentRepository = CreatePrismaCommentRepository(prisma);
   const commentService = CreateCommentService(commentRepository, eventRepository);
   const commentController = CreateCommentController(commentService, resolvedLogger);
 

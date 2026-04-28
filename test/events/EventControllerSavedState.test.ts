@@ -42,8 +42,7 @@ describe("EventController.showEventDetail saved state", () => {
 
     const eventService: Pick<IEventService, "getEventById" | "getRsvpState"> = {
       getEventById: async (_ctx: SessionContext, _eventId: string) => Ok(event),
-      getRsvpState: async (_ctx: SessionContext, _eventId: string) =>
-        Ok({ outcome: null, attendeeCount: 0 }),
+      getRsvpState: async () => Ok({ outcome: null, attendeeCount: 0 }),
     };
 
     const savedService: Pick<ISavedEventService, "isEventSaved"> = {
@@ -81,8 +80,7 @@ describe("EventController.showEventDetail saved state", () => {
 
     const eventService: Pick<IEventService, "getEventById" | "getRsvpState"> = {
       getEventById: async (_ctx: SessionContext, _eventId: string) => Ok(event),
-      getRsvpState: async (_ctx: SessionContext, _eventId: string) =>
-        Ok({ outcome: null, attendeeCount: 0 }),
+      getRsvpState: async () => Ok({ outcome: null, attendeeCount: 0 }),
     };
 
     const savedService: Pick<ISavedEventService, "isEventSaved"> = {

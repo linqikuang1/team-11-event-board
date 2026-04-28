@@ -34,3 +34,24 @@ model Rsvp {
 
   @@id([eventId, userId])
 }
+model Comment {
+  id        String   @id @default(uuid())
+  eventId   String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([eventId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model SavedEvent {
+  id      String   @id @default(uuid())
+  eventId String
+  userId  String
+  savedAt DateTime @default(now())
+
+  @@unique([userId, eventId])
+  @@index([userId, savedAt])
+  @@index([eventId])
+}
