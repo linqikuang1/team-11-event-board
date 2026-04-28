@@ -137,6 +137,41 @@ describe("EventService filters", () => {
     }
   });
 
+  it("limits week timeframe to now through end of week", async () => {
+    const events = CreateInMemoryEventRepository();
+    const rsvps = CreateInMemoryRsvpRepository();
+    const users = CreateInMemoryUserRepository();
+    const service = CreateEventService(events, rsvps, users);
+
+    const now = new Date();
+    const inTwoDaysStart = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+    const inTwoDaysEnd = new Date(inTwoDaysStart.getTime() + 60 * 60 * 1000);
+    const inTenDaysStart = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
+    const inTenDaysEnd = new Date(inTenDaysStart.getTime() + 60 * 60 * 1000);
+
+    await events.save(
+      eventRecord("this-week", {
+        startTime: inTwoDaysStart.toISOString(),
+        endTime: inTwoDaysEnd.toISOString(),
+      }),
+    );
+    await events.save(
+      eventRecord("outside-week", {
+        startTime: inTenDaysStart.toISOString(),
+        endTime: inTenDaysEnd.toISOString(),
+      }),
+    );
+
+    const result = await service.searchEvents(userCtx(), {
+      timeframe: "week",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.map((event) => event.id)).toEqual(["this-week"]);
+    }
+  });
+
   it("returns a typed error for invalid timeframe values", async () => {
     const events = CreateInMemoryEventRepository();
     const rsvps = CreateInMemoryRsvpRepository();
