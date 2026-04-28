@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import { Ok } from "../../src/lib/result";
 import { CreateEventController } from "../../src/events/EventController";
-import type { IEventService, SessionContext } from "../../src/events/EventService";
+import type { IEventService, SessionContext, RsvpStateResult } from "../../src/events/EventService";
 import type { IAppBrowserSession } from "../../src/session/AppSession";
 import type { ISavedEventService } from "../../src/saved/SavedEventService";
 import type { IEventRecord } from "../../src/events/Event";
@@ -99,4 +99,3 @@ describe("EventController.showEventDetail saved state", () => {
     expect((res.render as unknown as jest.Mock).mock.calls[0][1]).toMatchObject({ isSaved: false });
   });
 });
-

@@ -7,6 +7,8 @@ import { CreateApp } from "./app";
 import type { IApp } from "./contracts";
 import { CreateLoggingService } from "./service/LoggingService";
 import type { ILoggingService } from "./service/LoggingService";
+import { CreatePrismaEventRepository } from "./events/PrismaEventRepository";
+import { PrismaClient } from "@prisma/client";
 import { CreateInMemoryEventRepository } from "./events/InMemoryEventRepository";
 import { CreateInMemoryRsvpRepository } from "./events/InMemoryRsvpRepository";
 import { CreateEventService } from "./events/EventService";
@@ -22,27 +24,50 @@ import { prisma } from "./prisma/client";
 export function createComposedApp(logger?: ILoggingService): IApp {
   const resolvedLogger = logger ?? CreateLoggingService();
 
-  // Authentication & authorization wiring
   const authUsers = CreateInMemoryUserRepository();
   const passwordHasher = CreatePasswordHasher();
   const authService = CreateAuthService(authUsers, passwordHasher);
   const adminUserService = CreateAdminUserService(authUsers, passwordHasher);
-  const authController = CreateAuthController(
-    authService,
-    adminUserService,
-    resolvedLogger,
-  );
+  const authController = CreateAuthController(authService, adminUserService, resolvedLogger);
 
-  // Event wiring
-  const eventRepository = CreateInMemoryEventRepository();
+  const db = new PrismaClient();
+  const eventRepository = CreatePrismaEventRepository(db);
   const rsvpRepository = CreateInMemoryRsvpRepository();
   const eventService = CreateEventService(eventRepository, rsvpRepository, authUsers);
+
+  const savedEventRepository = CreateInMemorySavedEventRepository();
   // Saved event wiring
   const savedEventRepository = CreatePrismaSavedEventRepository(prisma);
   const savedEventService = CreateSavedEventService(savedEventRepository, eventRepository);
-
   const eventController = CreateEventController(eventService, savedEventService, resolvedLogger);
 
+  const commentRepository = CreateInMemoryCommentRepository();
+  const commentService = CreateCommentService(commentRepository, eventRepository);
+  const commentController = CreateCommentController(commentService, resolvedLogger);
+
+  const savedEventController = CreateSavedEventController(savedEventService, resolvedLogger);
+
+  return CreateApp(authController, eventController, commentController, savedEventController, resolvedLogger);
+}
+
+export function createTestComposedApp(logger?: ILoggingService): IApp {
+  const resolvedLogger = logger ?? CreateLoggingService();
+
+  const authUsers = CreateInMemoryUserRepository();
+  const passwordHasher = CreatePasswordHasher();
+  const authService = CreateAuthService(authUsers, passwordHasher);
+  const adminUserService = CreateAdminUserService(authUsers, passwordHasher);
+  const authController = CreateAuthController(authService, adminUserService, resolvedLogger);
+
+  const eventRepository = CreateInMemoryEventRepository();
+  const rsvpRepository = CreateInMemoryRsvpRepository();
+  const eventService = CreateEventService(eventRepository, rsvpRepository, authUsers);
+
+  const savedEventRepository = CreateInMemorySavedEventRepository();
+  const savedEventService = CreateSavedEventService(savedEventRepository, eventRepository);
+  const eventController = CreateEventController(eventService, savedEventService, resolvedLogger);
+
+  const commentRepository = CreateInMemoryCommentRepository();
   // Comment wiring
   const commentRepository = CreatePrismaCommentRepository(prisma);
   const commentService = CreateCommentService(commentRepository, eventRepository);
