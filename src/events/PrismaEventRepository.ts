@@ -128,9 +128,10 @@ class PrismaEventRepository implements IEventRepository {
 
       const rows = await this.db.event.findMany({
         where,
-        orderBy: {
-          startTime: "asc",
-        },
+        orderBy: [
+          {startTime: "asc"},
+          { title: "asc" }
+        ]
       });
 
       return Ok(rows.map(toRecord));
