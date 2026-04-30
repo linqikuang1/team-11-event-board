@@ -44,6 +44,7 @@ export interface IEventController {
     session: IAppBrowserSession,
     category?: string,
   ): Promise<void>;
+  deleteEvent(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
 }
 
 class EventController implements IEventController {
@@ -98,45 +99,44 @@ class EventController implements IEventController {
     res.render("events/create", { pageError, session });
   }
 
-async createFromForm(
-  res: Response,
-  input: CreateEventInput,
-  store: AppSessionStore,
+  async createFromForm(
+    res: Response,
+    input: CreateEventInput,
+    store: AppSessionStore,
 ): Promise<void> {
-  const session = touchAppSession(store);
-  const user = session.authenticatedUser;
+    const session = touchAppSession(store);
+    const user = session.authenticatedUser;
 
-  if (!user) {
-    res.status(401).render("partials/error", {
-      message: "Please log in to continue.",
-      layout: false,
-    });
-    return;
+    if (!user) {
+      res.status(401).render("partials/error", {
+        message: "Please log in to continue.",
+        layout: false,
+      });
+      return;
+    }
+    const ctx: SessionContext = {
+      userId: user.userId,
+      role: user.role as SessionContext["role"],
+    };
+
+    const result = await this.service.createEvent(ctx, input);
+
+    if (result.ok === false) {
+      const error = result.value;
+      const status = this.mapErrorStatus(error);
+      const log = status >= 500 ? this.logger.error : this.logger.warn;
+      log.call(this.logger, `Create event failed: ${error.message}`);
+      res.status(status).render("partials/error", {
+        message: error.message,
+        layout: false,
+      });
+      return;
+    }
+
+    this.logger.info(`Created event ${result.value.id}`);
+    res.setHeader("HX-Redirect", `/events/${result.value.id}`);
+    res.status(200).send();
   }
-
-  const ctx: SessionContext = {
-    userId: user.userId,
-    role: user.role as SessionContext["role"],
-  };
-
-  const result = await this.service.createEvent(ctx, input);
-
-  if (result.ok === false) {
-    const error = result.value;
-    const status = this.mapErrorStatus(error);
-    const log = status >= 500 ? this.logger.error : this.logger.warn;
-    log.call(this.logger, `Create event failed: ${error.message}`);
-    res.status(status).render("partials/error", {
-      message: error.message,
-      layout: false,
-    });
-    return;
-  }
-
-  this.logger.info(`Created event ${result.value.id}`);
-  res.setHeader("HX-Redirect", "/events?success=Event+created+successfully");
-  res.status(200).send();
-}
 
   async toggleRsvp(
     res: Response,
@@ -348,6 +348,33 @@ async createFromForm(
     });
   }
 
+  async deleteEvent(
+  res: Response,
+  eventId: string,
+  store: AppSessionStore,
+): Promise<void> {
+  const ctx = this.resolveContext(store);
+  if (!ctx) {
+    this.renderPartialError(res, 401, "Please log in to continue.");
+    return;
+  }
+
+  const result = await this.service.deleteEvent(ctx, eventId);
+
+  if (result.ok === false) {
+    const error = result.value;
+    const status = this.mapErrorStatus(error);
+    const log = status >= 500 ? this.logger.error : this.logger.warn;
+    log.call(this.logger, `Delete event ${eventId} failed: ${error.message}`);
+    this.renderPartialError(res, status, error.message);
+    return;
+  }
+
+  this.logger.info(`Event ${eventId} deleted by user ${ctx.userId}`);
+  res.setHeader("HX-Redirect", "/events");
+  res.status(200).send();
+}
+
   async publishEvent(
     res: Response,
     eventId: string,
@@ -467,6 +494,8 @@ async createFromForm(
       rsvpOutcome,
     });
   }
+
+  
 
   async showAttendeeList(
     res: Response,
