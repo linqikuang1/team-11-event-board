@@ -394,19 +394,19 @@ describe("POST /events/:id/edit", () => {
     it("happy path: staff can delete their own event and is redirected to /events", async () => {
       const app = buildApp();
       const cookie = await loginAs(app, STAFF_EMAIL, PASSWORD);
-      
+
       const createRes = await request(app)
-      .post("/events/create")
-      .set("Cookie", cookie)
-      .type("form")
-      .send(validFormData);
-      
+        .post("/events/create")
+        .set("Cookie", cookie)
+        .type("form")
+        .send(validFormData);
+
       const eventId = createRes.headers["hx-redirect"]?.split("/events/")[1];
-      
+
       const res = await request(app)
-      .post(`/events/${eventId}/delete`)
-      .set("Cookie", cookie);
-      
+        .post(`/events/${eventId}/delete`)
+        .set("Cookie", cookie);
+
       expect(res.status).toBe(302);
       expect(res.headers.location).toContain("/events");
     });

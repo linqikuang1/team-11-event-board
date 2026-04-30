@@ -384,8 +384,7 @@ class EventController implements IEventController {
   }
 
   this.logger.info(`Event ${eventId} deleted by user ${ctx.userId}`);
-  res.setHeader("HX-Redirect", "/events");
-  res.status(200).send();
+  res.redirect("/events");
 }
 
   async publishEvent(
