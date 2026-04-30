@@ -12,7 +12,7 @@
 
         <% if (typeof session !== 'undefined' && (session.authenticatedUser?.role === "staff" || session.authenticatedUser?.role === "admin")) { %>
           <div class="flex gap-2 mt-3">
-            
+            <a
               href="/events/<%= event.id %>/edit"
               class="px-3 py-1.5 text-sm rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium"
             >Edit</a>
