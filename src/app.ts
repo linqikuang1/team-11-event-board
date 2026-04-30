@@ -566,7 +566,27 @@ class ExpressApp implements IApp {
         );
       }),
     );
+    
+    this.app.post(
+      "/events/:id/delete",
+      asyncHandler(async (req, res) => {
+        if (
+          !this.requireRole(
+            req,
+            res,
+            ["staff", "admin"],
+            "Only organizers and admins can delete events.",
+          )
+        ) {
+          return;
+        }
+        const eventId =
+        typeof req.params.id === "string" ? req.params.id : "";
+        await this.eventController.deleteEvent(res, eventId, sessionStore(req));
+      }),
+    );
   }
+  
 
 
   getExpressApp(): express.Express {
