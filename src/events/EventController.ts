@@ -356,6 +356,7 @@ class EventController implements IEventController {
 
     res.render("partials/list", {
       events: result.value,
+      session: session,
       layout: false,
     });
   }
@@ -383,8 +384,7 @@ class EventController implements IEventController {
   }
 
   this.logger.info(`Event ${eventId} deleted by user ${ctx.userId}`);
-  res.setHeader("HX-Redirect", "/events");
-  res.status(200).send();
+  res.redirect("/events");
 }
 
   async publishEvent(
@@ -411,10 +411,7 @@ class EventController implements IEventController {
  
     this.logger.info(`Event ${eventId} published by user ${ctx.userId}`);
  
-    res.status(200).render("events/partials/event-controls", {
-      layout: false,
-      event: result.value,
-    });
+    res.redirect("/events");
   }
  
   async cancelEvent(
@@ -441,10 +438,7 @@ class EventController implements IEventController {
  
     this.logger.info(`Event ${eventId} cancelled by user ${ctx.userId}`);
  
-    res.status(200).render("events/partials/event-controls", {
-      layout: false,
-      event: result.value,
-    });
+    res.redirect("/events");
   }
 
   async showEventDetail(

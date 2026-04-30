@@ -74,12 +74,18 @@
             <span class="text-sm text-slate-500"><%= draft.location %></span><br />
             <span class="text-sm text-slate-500"><%= draft.startTime %></span>
           </div>
-          <form method="post" action="/events/<%= draft.id %>/publish">
-            <button
-              type="submit"
-              class="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium"
-            >Publish</button>
-          </form>
+          <div class="flex gap-2">
+            <a
+              href="/events/<%= draft.id %>/edit"
+              class="px-4 py-2 text-sm rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium"
+            >Edit</a>
+            <form method="post" action="/events/<%= draft.id %>/publish">
+              <button
+                type="submit"
+                class="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium"
+              >Publish</button>
+            </form>
+          </div>
         </li>
       <% }) %>
     </ul>
