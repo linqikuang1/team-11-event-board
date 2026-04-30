@@ -98,6 +98,7 @@ export interface IEventService {
   getArchivedEvents(ctx: SessionContext, category?: string): Promise<Result<IEventRecord[], EventError>>;
   getRsvpState(ctx: SessionContext, eventId: string,): Promise<Result<RsvpStateResult, EventError>>;
   deleteEvent(ctx: SessionContext, eventId: string): Promise<Result<boolean, EventError>>;
+  getMyDrafts(ctx: SessionContext): Promise<Result<IEventRecord[], EventError>>;
 }
 
 function validateEventInput(
@@ -723,6 +724,23 @@ class EventService implements IEventService {
       return Err(UnexpectedDependencyError(deleteResult.value.message));
     }
     return Ok(true);
+  }
+
+  async getMyDrafts(
+    ctx: SessionContext,
+  ): Promise<Result<IEventRecord[], EventError>> {
+    if (ctx.role === "user") {
+      return Err(Forbidden("Members do not have drafts."));
+    }
+    const allResult = await this.events.findAll({
+      status: "draft",
+      ...(ctx.role === "staff" ? { organizerId: ctx.userId } : {}),
+    });
+    
+    if (allResult.ok === false) {
+      return Err(UnexpectedDependencyError(allResult.value.message));
+    }
+    return Ok(allResult.value);
   }
 }
 
