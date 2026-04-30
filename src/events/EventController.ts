@@ -11,6 +11,7 @@ import type { IAppBrowserSession, AppSessionStore } from "../session/AppSession"
 import { touchAppSession } from "../session/AppSession";
 import type { ILoggingService } from "../service/LoggingService";
 import type { EventError } from "./errors";
+import type { IEventRecord } from "./Event";
 
 export interface IEventController {
   showCreateForm(res: Response, session: IAppBrowserSession, pageError?: string | null): Promise<void>;
@@ -266,6 +267,14 @@ class EventController implements IEventController {
       return;
     }
 
+    let myDrafts: IEventRecord[] = [];
+    if (ctx.role === "staff" || ctx.role === "admin") {
+      const draftsResult = await this.service.getMyDrafts(ctx);
+      if (draftsResult.ok === true) {
+        myDrafts = draftsResult.value;
+      }
+    }
+
     const result = await this.service.searchEvents(ctx, filters);
     const allEventsResult = await this.service.searchEvents(ctx, { timeframe: "all" });
 
@@ -291,6 +300,7 @@ class EventController implements IEventController {
         q,
         category,
         timeframe,
+        myDrafts,
         availableCategories,
         events: [],
         pageError: error.message,
@@ -304,11 +314,13 @@ class EventController implements IEventController {
       q,
       category,
       timeframe,
+      myDrafts,
       availableCategories,
       events: result.value,
       pageError: null,
       successMessage,
     });
+
   }
 
   async searchEventsPartial(
