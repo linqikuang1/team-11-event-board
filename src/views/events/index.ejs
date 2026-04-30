@@ -61,8 +61,39 @@
   <%- include("../partials/error", { message: pageError }) %>
 <% } %>
 
+<% if (typeof myDrafts !== 'undefined' && myDrafts.length > 0) { %>
+  <section class="mb-5 p-6 border border-yellow-200 rounded-2xl bg-yellow-50 shadow-lg">
+    <h2 class="text-xl font-bold text-yellow-800 mb-4">My Drafts</h2>
+    <ul class="space-y-3">
+      <% myDrafts.forEach((draft) => { %>
+        <li class="p-4 border border-yellow-200 rounded-xl bg-white shadow-sm flex items-center justify-between">
+          <div>
+            <a href="/events/<%= draft.id %>" class="text-lg font-semibold text-blue-700 hover:underline">
+              <%= draft.title %>
+            </a><br />
+            <span class="text-sm text-slate-500"><%= draft.location %></span><br />
+            <span class="text-sm text-slate-500"><%= draft.startTime %></span>
+          </div>
+          <div class="flex gap-2">
+            <a
+              href="/events/<%= draft.id %>/edit"
+              class="px-4 py-2 text-sm rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium"
+            >Edit</a>
+            <form method="post" action="/events/<%= draft.id %>/publish">
+              <button
+                type="submit"
+                class="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium"
+              >Publish</button>
+            </form>
+          </div>
+        </li>
+      <% }) %>
+    </ul>
+  </section>
+<% } %>
+
 <section class="max-w-3xl p-6 border border-slate-200 rounded-2xl bg-white shadow-lg">
   <div id="event-list">
-    <%- include("../partials/list", { events: events }) %>
+    <%- include("../partials/list", { events: events, session: session }) %>
   </div>
 </section>

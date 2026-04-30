@@ -1,6 +1,6 @@
 import { Err, Ok, type Result } from "../lib/result";
 import { UnexpectedDependencyError, type EventError } from "./errors";
-import type { IEventRepository } from "./EventRepository";
+import type { EventListQuery, IEventRepository } from "./EventRepository";
 import type { IEventRecord } from "./Event";
 
 class InMemoryEventRepository implements IEventRepository {
@@ -41,6 +41,63 @@ class InMemoryEventRepository implements IEventRepository {
       return Ok(results);
     } catch {
       return Err(UnexpectedDependencyError("Unable to list events."));
+    }
+  }
+
+  async findUpcomingPublished(query: EventListQuery): Promise<Result<IEventRecord[], EventError>> {
+    try {
+      const nowMillis = new Date(query.nowIso).getTime();
+      const q = (query.q ?? "").toLowerCase();
+      const category = query.category?.toLowerCase() ?? null;
+      const startFromMillis = query.startTimeFromIso
+        ? new Date(query.startTimeFromIso).getTime()
+        : null;
+      const startToMillis = query.startTimeToIso
+        ? new Date(query.startTimeToIso).getTime()
+        : null;
+
+      const results = this.events
+        .filter((event) => {
+          if (event.status !== "published") {
+            return false;
+          }
+
+          if (new Date(event.endTime).getTime() <= nowMillis) {
+            return false;
+          }
+
+          if (
+            q.length > 0 &&
+            !(
+              event.title.toLowerCase().includes(q) ||
+              event.description.toLowerCase().includes(q) ||
+              event.location.toLowerCase().includes(q)
+            )
+          ) {
+            return false;
+          }
+
+          if (category && !event.tags.some((tag) => tag.toLowerCase() === category)) {
+            return false;
+          }
+
+          const startMillis = new Date(event.startTime).getTime();
+          if (startFromMillis !== null && startMillis < startFromMillis) {
+            return false;
+          }
+          if (startToMillis !== null && startMillis > startToMillis) {
+            return false;
+          }
+
+          return true;
+        })
+        .sort(
+          (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+        );
+
+      return Ok(results);
+    } catch {
+      return Err(UnexpectedDependencyError("Unable to list filtered events."));
     }
   }
 

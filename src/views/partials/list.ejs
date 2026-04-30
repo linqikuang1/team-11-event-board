@@ -1,12 +1,41 @@
 <% if (!events || events.length === 0) { %>
   <p>No matching upcoming events.</p>
 <% } else { %>
-  <ul>
+  <ul class="space-y-4">
     <% events.forEach((event) => { %>
-      <li>
-        <strong><%= event.title %></strong><br />
-        <span><%= event.location %></span><br />
-        <span><%= event.startTime %></span>
+      <li class="p-4 border border-slate-200 rounded-xl bg-white shadow-sm">
+        <a href="/events/<%= event.id %>" class="text-lg font-semibold text-blue-700 hover:underline">
+          <%= event.title %>
+        </a><br />
+        <span class="text-sm text-slate-500"><%= event.location %></span><br />
+        <span class="text-sm text-slate-500"><%= event.startTime %></span>
+
+        <% if (typeof session !== 'undefined' && (session.authenticatedUser?.role === "staff" || session.authenticatedUser?.role === "admin")) { %>
+          <div class="flex gap-2 mt-3">
+            <a
+              href="/events/<%= event.id %>/edit"
+              class="px-3 py-1.5 text-sm rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium"
+            >Edit</a>
+
+            <form method="post" action="/events/<%= event.id %>/cancel">
+              <button
+                type="submit"
+                class="px-3 py-1.5 text-sm rounded-lg bg-yellow-100 text-yellow-800 hover:bg-yellow-200 font-medium"
+              >Cancel</button>
+            </form>
+
+            <form
+              method="post"
+              action="/events/<%= event.id %>/delete"
+              onsubmit="return confirm('Are you sure you want to permanently delete this event?')"
+            >
+              <button
+                type="submit"
+                class="px-3 py-1.5 text-sm rounded-lg bg-red-100 text-red-700 hover:bg-red-200 font-medium"
+              >Delete</button>
+            </form>
+          </div>
+        <% } %>
       </li>
     <% }) %>
   </ul>

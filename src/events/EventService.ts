@@ -97,6 +97,8 @@ export interface IEventService {
   transitionExpiredEvents(ctx: SessionContext): Promise<Result<number, EventError>>;
   getArchivedEvents(ctx: SessionContext, category?: string): Promise<Result<IEventRecord[], EventError>>;
   getRsvpState(ctx: SessionContext, eventId: string,): Promise<Result<RsvpStateResult, EventError>>;
+  deleteEvent(ctx: SessionContext, eventId: string): Promise<Result<boolean, EventError>>;
+  getMyDrafts(ctx: SessionContext): Promise<Result<IEventRecord[], EventError>>;
 }
 
 function validateEventInput(
@@ -357,66 +359,40 @@ class EventService implements IEventService {
     ctx: SessionContext,
     filters: EventFilterInput,
   ): Promise<Result<IEventRecord[], EventError>> {
+    void ctx;
     const normalizedFilters = normalizeEventFilters(filters);
     if (normalizedFilters.ok === false) {
       return Err(normalizedFilters.value);
     }
 
-    const allResult = await this.events.findAll();
-    if (allResult.ok === false) {
-      return Err(UnexpectedDependencyError(allResult.value.message));
-    }
-
-    const now = Date.now();
-
-    let results = allResult.value.filter((event) => {
-      const isPublished = event.status === "published";
-      const isUpcoming = new Date(event.endTime).getTime() > now;
-      return isPublished && isUpcoming;
-    });
-
     const { q, category, timeframe } = normalizedFilters.value;
-
-    if (q.length > 0) {
-      results = results.filter((event) => {
-        return (
-          event.title.toLowerCase().includes(q) ||
-          event.description.toLowerCase().includes(q) ||
-          event.location.toLowerCase().includes(q)
-        );
-      });
-    }
-
-    if (category) {
-      results = results.filter((event) =>
-        event.tags.some((tag) => tag.toLowerCase() === category),
-      );
-    }
+    const now = new Date();
+    let startTimeFromIso: string | undefined;
+    let startTimeToIso: string | undefined;
 
     if (timeframe === "week") {
-      const weekEnd = getEndOfWeek(new Date(now));
-      results = results.filter((event) => {
-        const startTime = new Date(event.startTime).getTime();
-        return startTime >= now && startTime <= weekEnd.getTime();
-      });
+      startTimeFromIso = now.toISOString();
+      startTimeToIso = getEndOfWeek(now).toISOString();
     }
 
     if (timeframe === "weekend") {
-      const weekend = getWeekendRange(new Date(now));
-      results = results.filter((event) => {
-        const startTime = new Date(event.startTime).getTime();
-        return (
-          startTime >= weekend.start.getTime() &&
-          startTime <= weekend.end.getTime()
-        );
-      });
+      const weekend = getWeekendRange(now);
+      startTimeFromIso = weekend.start.toISOString();
+      startTimeToIso = weekend.end.toISOString();
     }
 
-    results.sort(
-      (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
-    );
+    const result = await this.events.findUpcomingPublished({
+      nowIso: now.toISOString(),
+      q,
+      category: category ?? undefined,
+      startTimeFromIso,
+      startTimeToIso,
+    });
+    if (result.ok === false) {
+      return Err(UnexpectedDependencyError(result.value.message));
+    }
 
-    return Ok(results);
+    return Ok(result.value);
   }
 
   async toggleRsvp(
@@ -722,6 +698,49 @@ class EventService implements IEventService {
       );
 
     return Ok(archived);
+  }
+  async deleteEvent(
+    ctx: SessionContext,
+    eventId: string,
+  ): Promise<Result<boolean, EventError>> {
+    if (ctx.role === "user") {
+      return Err(Forbidden("Only staff and admins can delete events."));
+    }
+    const findResult = await this.events.findById(eventId);
+    if (findResult.ok === false) {
+      return Err(UnexpectedDependencyError(findResult.value.message));
+    }
+    if (!findResult.value) {
+      return Err(EventNotFound("Event not found."));
+    }
+    
+    const event = findResult.value;
+    
+    if (ctx.role === "staff" && event.organizerId !== ctx.userId) {
+      return Err(Forbidden("You do not have permission to delete this event."));
+    }
+    const deleteResult = await this.events.delete(eventId);
+    if (deleteResult.ok === false) {
+      return Err(UnexpectedDependencyError(deleteResult.value.message));
+    }
+    return Ok(true);
+  }
+
+  async getMyDrafts(
+    ctx: SessionContext,
+  ): Promise<Result<IEventRecord[], EventError>> {
+    if (ctx.role === "user") {
+      return Err(Forbidden("Members do not have drafts."));
+    }
+    const allResult = await this.events.findAll({
+      status: "draft",
+      ...(ctx.role === "staff" ? { organizerId: ctx.userId } : {}),
+    });
+    
+    if (allResult.ok === false) {
+      return Err(UnexpectedDependencyError(allResult.value.message));
+    }
+    return Ok(allResult.value);
   }
 }
 

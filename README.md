@@ -8,10 +8,14 @@ A starter application for team projects that provides authentication, role-based
 # 1. Install dependencies
 npm install
 
-# 2. Generate the Prisma client
+# 2. Environment (required for Prisma CLI: generate, migrate)
+#    Copy and edit, or set DATABASE_URL yourself.
+cp .env.example .env
+
+# 3. Generate the Prisma client
 npx prisma generate
 
-# 3. Build and run
+# 4. Build and run
 npm run dev
 ```
 

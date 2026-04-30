@@ -417,22 +417,6 @@ class ExpressApp implements IApp {
       }),
     );
 
-    this.app.get(
-      "/events/search",
-      asyncHandler(async (req, res) => {
-        if (!this.requireAuthenticated(req, res)) {
-          return;
-        }
-
-        const filters = {
-          q: typeof req.query.q === "string" ? req.query.q : "",
-          category: typeof req.query.category === "string" ? req.query.category : "",
-          timeframe: typeof req.query.timeframe === "string" ? req.query.timeframe : "all",
-        };
-        await this.eventController.searchEventsPartial(res, filters, sessionStore(req));
-      }),
-    );
-
     // ── Comment routes ──────────────────────────────────────────────
 
     this.app.get(
@@ -582,7 +566,27 @@ class ExpressApp implements IApp {
         );
       }),
     );
+    
+    this.app.post(
+      "/events/:id/delete",
+      asyncHandler(async (req, res) => {
+        if (
+          !this.requireRole(
+            req,
+            res,
+            ["staff", "admin"],
+            "Only organizers and admins can delete events.",
+          )
+        ) {
+          return;
+        }
+        const eventId =
+        typeof req.params.id === "string" ? req.params.id : "";
+        await this.eventController.deleteEvent(res, eventId, sessionStore(req));
+      }),
+    );
   }
+  
 
 
   getExpressApp(): express.Express {

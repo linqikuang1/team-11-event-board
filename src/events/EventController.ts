@@ -11,6 +11,7 @@ import type { IAppBrowserSession, AppSessionStore } from "../session/AppSession"
 import { touchAppSession } from "../session/AppSession";
 import type { ILoggingService } from "../service/LoggingService";
 import type { EventError } from "./errors";
+import type { IEventRecord } from "./Event";
 
 export interface IEventController {
   showCreateForm(res: Response, session: IAppBrowserSession, pageError?: string | null): Promise<void>;
@@ -44,6 +45,7 @@ export interface IEventController {
     session: IAppBrowserSession,
     category?: string,
   ): Promise<void>;
+  deleteEvent(res: Response, eventId: string, store: AppSessionStore): Promise<void>;
 }
 
 class EventController implements IEventController {
@@ -102,7 +104,7 @@ class EventController implements IEventController {
     res: Response,
     input: CreateEventInput,
     store: AppSessionStore,
-  ): Promise<void> {
+): Promise<void> {
     const session = touchAppSession(store);
     const user = session.authenticatedUser;
 
@@ -113,7 +115,6 @@ class EventController implements IEventController {
       });
       return;
     }
-
     const ctx: SessionContext = {
       userId: user.userId,
       role: user.role as SessionContext["role"],
@@ -126,13 +127,16 @@ class EventController implements IEventController {
       const status = this.mapErrorStatus(error);
       const log = status >= 500 ? this.logger.error : this.logger.warn;
       log.call(this.logger, `Create event failed: ${error.message}`);
-      res.status(status);
-      await this.showCreateForm(res, session, error.message);
+      res.status(status).render("partials/error", {
+        message: error.message,
+        layout: false,
+      });
       return;
     }
 
     this.logger.info(`Created event ${result.value.id}`);
-    res.redirect("/events?success=Event+created+successfully");
+    res.setHeader("HX-Redirect", `/events/${result.value.id}`);
+    res.status(200).send();
   }
 
   async toggleRsvp(
@@ -263,6 +267,14 @@ class EventController implements IEventController {
       return;
     }
 
+    let myDrafts: IEventRecord[] = [];
+    if (ctx.role === "staff" || ctx.role === "admin") {
+      const draftsResult = await this.service.getMyDrafts(ctx);
+      if (draftsResult.ok === true) {
+        myDrafts = draftsResult.value;
+      }
+    }
+
     const result = await this.service.searchEvents(ctx, filters);
     const allEventsResult = await this.service.searchEvents(ctx, { timeframe: "all" });
 
@@ -288,6 +300,7 @@ class EventController implements IEventController {
         q,
         category,
         timeframe,
+        myDrafts,
         availableCategories,
         events: [],
         pageError: error.message,
@@ -301,11 +314,13 @@ class EventController implements IEventController {
       q,
       category,
       timeframe,
+      myDrafts,
       availableCategories,
       events: result.value,
       pageError: null,
       successMessage,
     });
+
   }
 
   async searchEventsPartial(
@@ -341,9 +356,36 @@ class EventController implements IEventController {
 
     res.render("partials/list", {
       events: result.value,
+      session: session,
       layout: false,
     });
   }
+
+  async deleteEvent(
+  res: Response,
+  eventId: string,
+  store: AppSessionStore,
+): Promise<void> {
+  const ctx = this.resolveContext(store);
+  if (!ctx) {
+    this.renderPartialError(res, 401, "Please log in to continue.");
+    return;
+  }
+
+  const result = await this.service.deleteEvent(ctx, eventId);
+
+  if (result.ok === false) {
+    const error = result.value;
+    const status = this.mapErrorStatus(error);
+    const log = status >= 500 ? this.logger.error : this.logger.warn;
+    log.call(this.logger, `Delete event ${eventId} failed: ${error.message}`);
+    this.renderPartialError(res, status, error.message);
+    return;
+  }
+
+  this.logger.info(`Event ${eventId} deleted by user ${ctx.userId}`);
+  res.redirect("/events");
+}
 
   async publishEvent(
     res: Response,
@@ -369,10 +411,7 @@ class EventController implements IEventController {
  
     this.logger.info(`Event ${eventId} published by user ${ctx.userId}`);
  
-    res.status(200).render("events/partials/event_controls", {
-      layout: false,
-      event: result.value,
-    });
+    res.redirect("/events");
   }
  
   async cancelEvent(
@@ -399,10 +438,7 @@ class EventController implements IEventController {
  
     this.logger.info(`Event ${eventId} cancelled by user ${ctx.userId}`);
  
-    res.status(200).render("events/partials/event_controls", {
-      layout: false,
-      event: result.value,
-    });
+    res.redirect("/events");
   }
 
   async showEventDetail(
@@ -446,8 +482,26 @@ class EventController implements IEventController {
       isSaved = savedResult.value;
     }
 
-    res.render("events/show", { session, event: result.value, isSaved });
+    let attendeeCount = 0;
+    let rsvpOutcome: unknown = null;
+    const rsvpStateResult = await this.service.getRsvpState(ctx, eventId);
+    if (rsvpStateResult.ok === true) {
+      attendeeCount = rsvpStateResult.value.attendeeCount;
+      rsvpOutcome = rsvpStateResult.value.outcome;
+    } else {
+      this.logger.warn(`RSVP state lookup failed: ${rsvpStateResult.value.message}`);
+    }
+
+    res.render("events/show", {
+      session,
+      event: result.value,
+      isSaved,
+      attendeeCount,
+      rsvpOutcome,
+    });
   }
+
+  
 
   async showAttendeeList(
     res: Response,
