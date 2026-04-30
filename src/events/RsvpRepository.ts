@@ -29,4 +29,9 @@ export interface IRsvpRepository {
     eventId: string,
     filter?: { status?: RsvpStatus },
   ): Promise<Result<IRsvpRecord[], EventError>>;
+
+  countByEvent(
+    eventId: string,
+    filter?: { status?: RsvpStatus },
+  ): Promise<Result<number, EventError>>;
 }
