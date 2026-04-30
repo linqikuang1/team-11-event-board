@@ -4,7 +4,6 @@ import type { EventListQuery, IEventRepository } from "./EventRepository";
 import type { IEventRecord, EventStatus } from "./Event";
 import { Prisma, type PrismaClient, type Event as PrismaEvent } from "@prisma/client";
 
-
 function serializeTags(tags: string[]): string {
   return JSON.stringify(tags);
 }
@@ -104,9 +103,9 @@ class PrismaEventRepository implements IEventRepository {
 
       if (query.q && query.q.length > 0) {
         where.OR = [
-          { title: { contains: query.q, mode: "insensitive" } },
-          { description: { contains: query.q, mode: "insensitive" } },
-          { location: { contains: query.q, mode: "insensitive" } },
+          { title: { contains: query.q } },
+          { description: { contains: query.q } },
+          { location: { contains: query.q } },
         ];
       }
 
@@ -115,7 +114,6 @@ class PrismaEventRepository implements IEventRepository {
         const categoryJson = JSON.stringify([normalizedCategory]).slice(1, -1);
         where.tags = {
           contains: categoryJson,
-          mode: "insensitive",
         };
       }
 
@@ -129,9 +127,9 @@ class PrismaEventRepository implements IEventRepository {
       const rows = await this.db.event.findMany({
         where,
         orderBy: [
-          {startTime: "asc"},
-          { title: "asc" }
-        ]
+          { startTime: "asc" },
+          { title: "asc" },
+        ],
       });
 
       return Ok(rows.map(toRecord));
