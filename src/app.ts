@@ -285,20 +285,12 @@ class ExpressApp implements IApp {
       }),
     );
 
-    this.app.get(
+    this.app.post(
       "/events/:id/rsvp",
       asyncHandler(async (req, res) => {
         if (!this.requireAuthenticated(req, res)) {
           return;
         }
-
-        const browserSession = recordPageView(sessionStore(req));
-        const filters = {
-          q: typeof req.query.q === "string" ? req.query.q : "",
-          category: typeof req.query.category === "string" ? req.query.category : "",
-          timeframe: typeof req.query.timeframe === "string" ? req.query.timeframe : "all",
-        };
-        await this.eventController.showEventsPage(res, browserSession, filters);
         const eventId =
           typeof req.params.id === "string" ? req.params.id : "";
         await this.eventController.toggleRsvp(res, eventId, sessionStore(req));

@@ -173,7 +173,7 @@ class EventController implements IEventController {
       outcome,
       attendeeCount,
       capacity: event.capacity,
-      readonly: !canRsvp,
+      readonly: false,
     });
   }
 
