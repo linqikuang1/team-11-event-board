@@ -11,6 +11,7 @@ export interface ISavedEventController {
     eventId: string,
     session: IAppBrowserSession,
     isHtmx?: boolean,
+    hxCurrentUrl?: string,
   ): Promise<void>;
 
   showSavedEvents(
@@ -30,6 +31,7 @@ class SavedEventController implements ISavedEventController {
     eventId: string,
     session: IAppBrowserSession,
     isHtmx = false,
+    hxCurrentUrl?: string,
   ): Promise<void> {
     const user = session.authenticatedUser;
 
@@ -63,6 +65,26 @@ class SavedEventController implements ISavedEventController {
     this.logger.info(`Event ${eventId} ${action} by user ${ctx.userId}`);
 
     if (isHtmx) {
+      if (hxCurrentUrl && new URL(hxCurrentUrl).pathname === "/saved") {
+        const listResult = await this.service.listSavedEvents(ctx);
+        if (listResult.ok === false) {
+          const error = listResult.value;
+          const status = this.mapErrorStatus(error);
+          this.logger.warn(`List saved events failed: ${error.message}`);
+          res.status(status).render("partials/error", {
+            message: error.message,
+            layout: false,
+          });
+          return;
+        }
+
+        res.render("saved/partials/saved-list", {
+          entries: listResult.value,
+          layout: false,
+        });
+        return;
+      }
+
       res.render("saved/partials/save-toggle", {
         eventId,
         isSaved: result.value.saved,
