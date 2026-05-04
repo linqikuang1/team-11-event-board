@@ -22,7 +22,7 @@
       init() {
         const tick = () => {
           const diffSec = Math.round((new Date(this.iso).getTime() - Date.now()) / 1000);
-          const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+          const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
           const diffMin = Math.round(diffSec / 60);
           const diffHr = Math.round(diffSec / 3600);
           const diffDay = Math.round(diffSec / 86400);
