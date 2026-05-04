@@ -1,15 +1,16 @@
-<div id="save-toggle">
+<div id="save-toggle" class="inline-flex items-center">
   <form
     hx-post="/events/<%= eventId %>/save"
     hx-target="#save-toggle"
     hx-swap="outerHTML"
     method="post"
+    class="inline-flex items-center m-0"
   >
     <button
       type="submit"
-      class="<%= isSaved ? 'px-4 py-2.5 rounded-lg border border-red-200 text-red-600 font-medium hover:bg-red-50' : 'px-4 py-2.5 rounded-lg border border-slate-300 text-slate-600 font-medium hover:bg-slate-50' %>"
+      class="<%= isSaved ? 'inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg border border-red-200 text-red-600 text-sm font-medium leading-none hover:bg-red-50' : 'inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg border border-slate-300 text-slate-600 text-sm font-medium leading-none hover:bg-slate-50' %>"
     >
-      <%= isSaved ? "Unsave" : "Save for Later" %>
+      <%= isSaved ? "Unsave 📌" : "Save for Later 📌" %>
     </button>
   </form>
 </div>

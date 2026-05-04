@@ -475,6 +475,7 @@ class ExpressApp implements IApp {
           eventId,
           session,
           this.isHtmxRequest(req),
+          req.get("HX-Current-URL") ?? undefined,
         );
       }),
     );
