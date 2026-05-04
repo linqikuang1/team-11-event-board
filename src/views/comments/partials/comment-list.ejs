@@ -35,10 +35,10 @@
             <span class="hidden text-xs text-slate-300 sm:inline" aria-hidden="true">·</span>
             <time
               class="text-xs font-medium text-slate-500 tabular-nums"
-              datetime="<%= comment.createdAt %>"
-              data-rel-at="<%= comment.createdAt %>"
-              ><%= new Date(comment.createdAt).toLocaleString() %></time
-            >
+              x-data='relativeTimeslot(<%= JSON.stringify(comment.createdAt) %>)'
+              x-bind:datetime="iso"
+              x-text="label"
+            ></time>
           </div>
           <p class="break-words text-sm leading-relaxed text-slate-700 whitespace-pre-wrap sm:text-[15px]">
             <%= comment.content %>

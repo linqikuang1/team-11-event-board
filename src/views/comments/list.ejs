@@ -1,3 +1,83 @@
+<style>
+  @keyframes comment-pop-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.4rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .comment-thread-card.comment-pop {
+    animation: comment-pop-in 0.42s ease-out;
+  }
+</style>
+
+<script>
+  document.addEventListener("alpine:init", () => {
+    Alpine.data("relativeTimeslot", (iso) => ({
+      iso,
+      label: "",
+      init() {
+        const tick = () => {
+          const diffSec = Math.round((new Date(this.iso).getTime() - Date.now()) / 1000);
+          const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+          const diffMin = Math.round(diffSec / 60);
+          const diffHr = Math.round(diffSec / 3600);
+          const diffDay = Math.round(diffSec / 86400);
+          const diffWk = Math.round(diffSec / 604800);
+          const diffMo = Math.round(diffSec / 2629800);
+          if (Math.abs(diffSec) < 60) {
+            this.label = rtf.format(-diffSec, "second");
+          } else if (Math.abs(diffMin) < 60) {
+            this.label = rtf.format(diffMin, "minute");
+          } else if (Math.abs(diffHr) < 24) {
+            this.label = rtf.format(diffHr, "hour");
+          } else if (Math.abs(diffDay) < 7) {
+            this.label = rtf.format(diffDay, "day");
+          } else if (Math.abs(diffWk) < 5) {
+            this.label = rtf.format(diffWk, "week");
+          } else if (Math.abs(diffMo) < 12) {
+            this.label = rtf.format(diffMo, "month");
+          } else {
+            this.label = rtf.format(Math.round(diffSec / 31557600), "year");
+          }
+        };
+        tick();
+        setInterval(() => tick(), 60000);
+      },
+    }));
+  });
+
+  let commentListSwapT = 0;
+  document.body.addEventListener("htmx:afterSwap", (evt) => {
+    const target = evt.detail && evt.detail.target;
+    if (!target || target.id !== "comment-list") return;
+    const cfg = evt.detail.requestConfig;
+    window.clearTimeout(commentListSwapT);
+    commentListSwapT = window.setTimeout(() => {
+      if (typeof Alpine !== "undefined") {
+        Alpine.initTree(target);
+      }
+      const method = (cfg && cfg.verb ? String(cfg.verb) : "").toLowerCase();
+      const path = cfg && cfg.path ? String(cfg.path) : "";
+      if (method === "post" && !path.includes("/delete")) {
+        const items = target.querySelectorAll("[data-comment-item]");
+        const last = items[items.length - 1];
+        if (last) {
+          last.classList.add("comment-pop");
+          last.addEventListener(
+            "animationend",
+            () => last.classList.remove("comment-pop"),
+            { once: true },
+          );
+        }
+      }
+    }, 0);
+  });
+</script>
+
 <section
   class="mb-4 sm:mb-5 rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-5 shadow-lg sm:p-6"
 >
