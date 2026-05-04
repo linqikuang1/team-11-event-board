@@ -40,9 +40,7 @@
               x-text="label"
             ></time>
           </div>
-          <p class="break-words text-sm leading-relaxed text-slate-700 whitespace-pre-wrap sm:text-[15px]">
-            <%= comment.content %>
-          </p>
+          <p class="break-words text-sm leading-relaxed text-slate-700 whitespace-pre-line sm:text-[15px]"><%= comment.content.trim() %></p>
           <% if (
             comment.userId === currentUserId ||
             session.authenticatedUser.role === "admin"
