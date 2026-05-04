@@ -21,15 +21,20 @@
       label: "",
       init() {
         const tick = () => {
-          const diffSec = Math.round((new Date(this.iso).getTime() - Date.now()) / 1000);
+          let diffSec = Math.round((new Date(this.iso).getTime() - Date.now()) / 1000);
+          // Server clock slightly ahead of client: small positive diff looks "in the future"
+          if (diffSec > 0 && diffSec <= 120) {
+            diffSec = 0;
+          }
           const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
           const diffMin = Math.round(diffSec / 60);
           const diffHr = Math.round(diffSec / 3600);
           const diffDay = Math.round(diffSec / 86400);
           const diffWk = Math.round(diffSec / 604800);
           const diffMo = Math.round(diffSec / 2629800);
+          // Negative value => past for Intl.RelativeTimeFormat (diffSec = comment - now)
           if (Math.abs(diffSec) < 60) {
-            this.label = rtf.format(-diffSec, "second");
+            this.label = rtf.format(diffSec, "second");
           } else if (Math.abs(diffMin) < 60) {
             this.label = rtf.format(diffMin, "minute");
           } else if (Math.abs(diffHr) < 24) {
