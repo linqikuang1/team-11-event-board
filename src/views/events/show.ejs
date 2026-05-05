@@ -9,8 +9,8 @@
         'bg-slate-400' %>">
   </div>
 
-  <div class="p-6 bg-gradient-to-b from-white to-slate-50">
-    <div class="flex items-start justify-between gap-4">
+  <div class="p-4 sm:p-6 bg-gradient-to-b from-white to-slate-50">
+    <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
       <div>
         <a href="/events" class="text-sm text-slate-400 hover:text-slate-600 mb-3 inline-flex items-center gap-1">
           ← Back to Events
@@ -39,7 +39,7 @@
       </div>
 
       <% if (session.authenticatedUser?.role === "staff" || session.authenticatedUser?.role === "admin") { %>
-        <div class="flex gap-2 flex-shrink-0 flex-wrap justify-end">
+        <div class="flex gap-2 flex-shrink-0 flex-wrap">
           <button
             type="button"
             hx-get="/events/<%= event.id %>/attendees"
@@ -73,7 +73,7 @@
 </section>
 
 <%# ── Event details ──────────────────────────────────────────── %>
-<section class="max-w-3xl p-6 border border-slate-200 rounded-2xl bg-white shadow-lg">
+<section class="max-w-3xl p-4 sm:p-6 border border-slate-200 rounded-2xl bg-white shadow-lg">
   <div class="grid gap-6">
 
     <% if (event.description) { %>
@@ -84,7 +84,7 @@
       <hr class="border-slate-100" />
     <% } %>
 
-    <div class="grid grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
       <div class="flex gap-3 items-start">
         <span class="text-xl mt-0.5">📍</span>
         <div>
@@ -92,20 +92,53 @@
           <p class="text-slate-800 font-medium"><%= event.location %></p>
         </div>
       </div>
-      <div class="flex gap-3 items-start">
+
+      <%# Start Time with Alpine.js relative label %>
+      <div
+        class="flex gap-3 items-start"
+        x-data="{
+          relativeTime: '',
+          init() {
+            const diff = Math.round((new Date('<%= event.startTime %>') - new Date()) / 86400000);
+            if (diff === 0) this.relativeTime = 'today';
+            else if (diff === 1) this.relativeTime = 'tomorrow';
+            else if (diff === -1) this.relativeTime = 'yesterday';
+            else if (diff > 1) this.relativeTime = 'in ' + diff + ' days';
+            else this.relativeTime = Math.abs(diff) + ' days ago';
+          }
+        }"
+      >
         <span class="text-xl mt-0.5">🕐</span>
         <div>
           <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Start Time</h2>
           <p class="text-slate-800 font-medium"><%= new Date(event.startTime).toLocaleString() %></p>
+          <p class="text-xs text-blue-500 font-medium mt-0.5" x-text="relativeTime"></p>
         </div>
       </div>
-      <div class="flex gap-3 items-start">
+
+      <%# End Time with Alpine.js relative label %>
+      <div
+        class="flex gap-3 items-start"
+        x-data="{
+          relativeTime: '',
+          init() {
+            const diff = Math.round((new Date('<%= event.endTime %>') - new Date()) / 86400000);
+            if (diff === 0) this.relativeTime = 'ends today';
+            else if (diff === 1) this.relativeTime = 'ends tomorrow';
+            else if (diff === -1) this.relativeTime = 'ended yesterday';
+            else if (diff > 1) this.relativeTime = 'ends in ' + diff + ' days';
+            else this.relativeTime = 'ended ' + Math.abs(diff) + ' days ago';
+          }
+        }"
+      >
         <span class="text-xl mt-0.5">🏁</span>
         <div>
           <h2 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">End Time</h2>
           <p class="text-slate-800 font-medium"><%= new Date(event.endTime).toLocaleString() %></p>
+          <p class="text-xs text-slate-400 font-medium mt-0.5" x-text="relativeTime"></p>
         </div>
       </div>
+
       <div class="flex gap-3 items-start">
         <span class="text-xl mt-0.5">🧑‍🤝‍🧑</span>
         <div>
@@ -147,7 +180,7 @@
 <% } %>
 
 <%# ── Comments ───────────────────────────────────────────────── %>
-<section class="mt-5 max-w-3xl p-6 border border-slate-200 rounded-2xl bg-white shadow-lg">
+<section class="mt-5 max-w-3xl p-4 sm:p-6 border border-slate-200 rounded-2xl bg-white shadow-lg">
   <div class="flex items-center justify-between mb-3">
     <h2 class="text-xl font-semibold text-slate-900">💬 Comments</h2>
     <a href="/events/<%= event.id %>/comments" class="text-sm text-blue-600 hover:text-blue-800 font-medium">View All →</a>
