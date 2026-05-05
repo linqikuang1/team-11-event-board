@@ -8,9 +8,24 @@
   >
     <button
       type="submit"
-      class="<%= isSaved ? 'inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg border border-red-200 text-red-600 text-sm font-medium leading-none hover:bg-red-50' : 'inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg border border-slate-300 text-slate-600 text-sm font-medium leading-none hover:bg-slate-50' %>"
+      class="<%= isSaved ? 'group inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-amber-200 bg-amber-50/60 text-amber-800 text-sm font-semibold leading-none shadow-sm transition hover:bg-amber-100/70 hover:border-amber-300' : 'group inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 text-sm font-semibold leading-none shadow-sm transition hover:bg-slate-50 hover:border-slate-400' %>"
     >
-      <%= isSaved ? "Unsave 📌" : "Save for Later 📌" %>
+      <span class="inline-flex items-center justify-center">
+        <svg
+          viewBox="0 0 24 24"
+          class="h-4 w-4 transition-transform group-hover:scale-105"
+          aria-hidden="true"
+        >
+          <path
+            d="M7 3h10a2 2 0 0 1 2 2v16l-7-4-7 4V5a2 2 0 0 1 2-2z"
+            fill="<%= isSaved ? 'currentColor' : 'none' %>"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </span>
+      <span><%= isSaved ? "Saved" : "Save for Later" %></span>
     </button>
   </form>
 </div>
