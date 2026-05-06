@@ -349,6 +349,8 @@ class EventController implements IEventController {
 
       res.status(status).render("partials/list", {
         events: [],
+        session,
+        pageError: error.message,
         layout: false,
       });
       return;
@@ -356,7 +358,8 @@ class EventController implements IEventController {
 
     res.render("partials/list", {
       events: result.value,
-      session: session,
+      session,
+      pageError: null,
       layout: false,
     });
   }

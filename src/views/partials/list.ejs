@@ -1,3 +1,9 @@
+<% if (typeof pageError !== "undefined" && pageError) { %>
+  <div class="mb-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+    <%= pageError %>
+  </div>
+<% } %>
+
 <% if (!events || events.length === 0) { %>
   <p class="text-slate-500 text-sm py-2">No matching upcoming events.</p>
 <% } else { %>
