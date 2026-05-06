@@ -14,6 +14,20 @@
     hx-trigger="change, submit, keyup changed delay:400ms from:input[name='q']"
     hx-push-url="true"
     class="rounded-2xl border border-slate-200 bg-white/90 p-3 sm:p-4"
+    x-data="{
+      q: <%- JSON.stringify(q ?? '') %>,
+      category: <%- JSON.stringify(category ?? '') %>,
+      timeframe: <%- JSON.stringify(timeframe ?? 'all') %>,
+      get hasActiveFilters() {
+        return this.q.trim().length > 0 || this.category.trim().length > 0 || this.timeframe !== 'all';
+      },
+      clearFilters() {
+        this.q = '';
+        this.category = '';
+        this.timeframe = 'all';
+        window.location.href = '/events';
+      },
+    }"
   >
     <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:gap-2">
       <div class="w-full lg:flex-[2]">
@@ -25,6 +39,7 @@
         type="search"
         name="q"
         value="<%= q %>"
+        x-model="q"
         placeholder="Search by title, description, or location"
         class="w-full rounded-xl border px-3 py-2.5 focus:outline-2 focus:outline-blue-500/20 <%= q ? 'border-blue-500 bg-blue-50/60 text-blue-900 placeholder:text-blue-500/80' : 'border-slate-300 bg-white' %>"
       />
@@ -37,6 +52,7 @@
       <select
         id="event-category"
         name="category"
+        x-model="category"
         class="w-full rounded-xl border px-3 py-2.5 focus:outline-2 focus:outline-blue-500/20 <%= category ? 'border-blue-500 bg-blue-50/60 text-blue-900' : 'border-slate-300 bg-white' %>"
       >
         <option value="">All categories</option>
@@ -53,6 +69,7 @@
       <select
         id="event-timeframe"
         name="timeframe"
+        x-model="timeframe"
         class="w-full rounded-xl border px-3 py-2.5 focus:outline-2 focus:outline-blue-500/20 <%= timeframe !== 'all' ? 'border-blue-500 bg-blue-50/60 text-blue-900' : 'border-slate-300 bg-white' %>"
       >
         <option value="all" <%= timeframe === "all" ? "selected" : "" %>>All upcoming</option>
@@ -76,6 +93,23 @@
           Saved 📌
         </a>
       <% } %>
+      <button
+        type="button"
+        x-show="hasActiveFilters"
+        x-cloak
+        x-on:click="clearFilters()"
+        class="inline-flex items-center justify-center rounded-lg border border-slate-300 px-4 py-2.5 font-medium text-slate-700 hover:bg-slate-50"
+      >
+        Clear Filters
+      </button>
+      <noscript>
+        <a
+          href="/events"
+          class="inline-flex items-center justify-center rounded-lg border border-slate-300 px-4 py-2.5 font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Clear Filters
+        </a>
+      </noscript>
       </div>
     </div>
   </form>
