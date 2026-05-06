@@ -1,27 +1,71 @@
 <%
   const sections = [
-    { key: "attending", title: "Attending", items: attendeeGroups.attending },
-    { key: "waitlisted", title: "Waitlisted", items: attendeeGroups.waitlisted },
-    { key: "cancelled", title: "Cancelled", items: attendeeGroups.cancelled },
+    {
+      key: "attending",
+      title: "Attending",
+      items: attendeeGroups.attending,
+      tone: {
+        ring: "ring-emerald-200",
+        badge: "bg-emerald-100 text-emerald-800",
+        dot: "bg-emerald-500",
+        header: "text-emerald-700",
+        empty: "text-emerald-700/70",
+      },
+    },
+    {
+      key: "waitlisted",
+      title: "Waitlisted",
+      items: attendeeGroups.waitlisted,
+      tone: {
+        ring: "ring-amber-200",
+        badge: "bg-amber-100 text-amber-800",
+        dot: "bg-amber-500",
+        header: "text-amber-700",
+        empty: "text-amber-700/70",
+      },
+    },
+    {
+      key: "cancelled",
+      title: "Cancelled",
+      items: attendeeGroups.cancelled,
+      tone: {
+        ring: "ring-rose-200",
+        badge: "bg-rose-100 text-rose-800",
+        dot: "bg-rose-500",
+        header: "text-rose-700",
+        empty: "text-rose-700/70",
+      },
+    },
   ];
 %>
 
-<section class="max-w-4xl grid gap-5">
+<section class="max-w-4xl grid gap-4 sm:gap-5">
   <% sections.forEach((section) => { %>
-    <article class="p-6 border border-slate-200 rounded-2xl bg-white shadow-lg">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-xl font-semibold text-slate-900"><%= section.title %></h2>
-        <span class="text-sm text-slate-500"><%= section.items.length %> RSVP(s)</span>
+    <article class="rounded-2xl bg-white shadow-lg ring-1 <%= section.tone.ring %> overflow-hidden">
+      <div class="px-4 py-3 sm:px-6 sm:py-4 border-b border-slate-100 bg-slate-50/80">
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-base sm:text-lg font-semibold text-slate-900 inline-flex items-center gap-2">
+            <span class="inline-block w-2.5 h-2.5 rounded-full <%= section.tone.dot %>"></span>
+            <%= section.title %>
+          </h2>
+          <span class="text-xs sm:text-sm font-medium px-2.5 py-1 rounded-full <%= section.tone.badge %>">
+            <%= section.items.length %> RSVP(s)
+          </span>
+        </div>
       </div>
 
       <% if (section.items.length === 0) { %>
-        <p class="text-slate-500 text-sm">No attendees in this section yet.</p>
+        <p class="px-4 py-4 sm:px-6 sm:py-5 text-sm <%= section.tone.empty %>">
+          No attendees in this section yet.
+        </p>
       <% } else { %>
-        <ul class="divide-y divide-slate-200">
+        <ul class="divide-y divide-slate-100">
           <% section.items.forEach((attendee) => { %>
-            <li class="py-3 flex items-center justify-between gap-3">
-              <span class="font-medium text-slate-900"><%= attendee.displayName %></span>
-              <time class="text-sm text-slate-500"><%= new Date(attendee.rsvpedAt).toLocaleString() %></time>
+            <li class="px-4 py-3 sm:px-6 sm:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-3">
+              <span class="font-medium text-slate-900 truncate"><%= attendee.displayName %></span>
+              <time class="text-xs sm:text-sm text-slate-500" datetime="<%= attendee.rsvpedAt %>">
+                RSVPed <%= new Date(attendee.rsvpedAt).toLocaleString() %>
+              </time>
             </li>
           <% }) %>
         </ul>
