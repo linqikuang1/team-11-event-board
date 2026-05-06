@@ -13,50 +13,70 @@
     hx-swap="innerHTML"
     hx-trigger="change, submit, keyup changed delay:400ms from:input[name='q']"
     hx-push-url="true"
+    class="rounded-2xl border border-slate-200 bg-white/90 p-3 sm:p-4"
   >
-    <div class="grid gap-3 md:grid-cols-3">
+    <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:gap-2">
+      <div class="w-full lg:flex-[2]">
+        <label for="event-search" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Search
+        </label>
       <input
+        id="event-search"
         type="search"
         name="q"
         value="<%= q %>"
         placeholder="Search by title, description, or location"
-        class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500"
+        class="w-full rounded-xl border px-3 py-2.5 focus:outline-2 focus:outline-blue-500/20 <%= q ? 'border-blue-500 bg-blue-50/60 text-blue-900 placeholder:text-blue-500/80' : 'border-slate-300 bg-white' %>"
       />
+      </div>
 
+      <div class="w-full lg:flex-1">
+        <label for="event-category" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Category
+        </label>
       <select
+        id="event-category"
         name="category"
-        class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500"
+        class="w-full rounded-xl border px-3 py-2.5 focus:outline-2 focus:outline-blue-500/20 <%= category ? 'border-blue-500 bg-blue-50/60 text-blue-900' : 'border-slate-300 bg-white' %>"
       >
         <option value="">All categories</option>
         <% availableCategories.forEach((item) => { %>
           <option value="<%= item %>" <%= item === category ? "selected" : "" %>><%= item %></option>
         <% }) %>
       </select>
+      </div>
 
+      <div class="w-full lg:flex-1">
+        <label for="event-timeframe" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Timeframe
+        </label>
       <select
+        id="event-timeframe"
         name="timeframe"
-        class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500"
+        class="w-full rounded-xl border px-3 py-2.5 focus:outline-2 focus:outline-blue-500/20 <%= timeframe !== 'all' ? 'border-blue-500 bg-blue-50/60 text-blue-900' : 'border-slate-300 bg-white' %>"
       >
         <option value="all" <%= timeframe === "all" ? "selected" : "" %>>All upcoming</option>
         <option value="week" <%= timeframe === "week" ? "selected" : "" %>>This week</option>
         <option value="weekend" <%= timeframe === "weekend" ? "selected" : "" %>>This weekend</option>
       </select>
-    </div>
-    <div class="mt-3 flex flex-wrap items-center gap-3">
+      </div>
+
+      <div class="flex w-full flex-wrap items-center gap-2 pt-1 lg:w-auto lg:pt-0">
       <button
         type="submit"
-        class="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700"
+        class="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 font-medium text-white hover:bg-blue-700"
       >
         Apply Filters
       </button>
       <% if (session.authenticatedUser?.role === "user") { %>
         <a
           href="/saved"
-          class="px-4 py-2.5 rounded-lg border border-slate-300 text-slate-700 font-medium hover:bg-slate-50"
+          class="inline-flex items-center justify-center rounded-lg border border-slate-300 px-4 py-2.5 font-medium text-slate-700 hover:bg-slate-50"
         >
           Saved 📌
         </a>
       <% } %>
+      </div>
     </div>
   </form>
 </section>
