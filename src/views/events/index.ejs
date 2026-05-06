@@ -147,7 +147,7 @@
 <% } %>
 
 <section class="max-w-3xl p-6 border border-slate-200 rounded-2xl bg-white shadow-lg">
-  <div id="event-list">
+  <div id="event-list" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3"></div>
     <%- include("../partials/list", { events: events, session: session }) %>
   </div>
 </section>
