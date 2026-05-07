@@ -414,7 +414,11 @@ class EventController implements IEventController {
  
     this.logger.info(`Event ${eventId} published by user ${ctx.userId}`);
  
-    res.redirect("/events");
+    res.status(200).render("events/partials/event_header", {
+      layout: false,
+      event: result.value,
+      session: touchAppSession(store),
+    });
   }
  
   async cancelEvent(
@@ -441,7 +445,11 @@ class EventController implements IEventController {
  
     this.logger.info(`Event ${eventId} cancelled by user ${ctx.userId}`);
  
-    res.redirect("/events");
+    res.status(200).render("events/partials/event_header", {
+      layout: false,
+      event: result.value,
+      session: touchAppSession(store),
+    });
   }
 
   async showEventDetail(
