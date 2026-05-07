@@ -3,6 +3,16 @@
 <% if (pageError) { %>
   <p><%= pageError %></p>
 <% } %>
+<div x-data="{ open: true }">
+  <button
+    type="button"
+    x-on:click="open = !open"
+    class="mb-4 px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 transition"
+  >
+    Toggle Filters
+  </button>
+
+  <div x-show="open">
 
 <form action="/events/archive" method="get">
   <label for="archive-category">Category:</label>
@@ -13,6 +23,7 @@
     hx-trigger="change"
     hx-target="#archive-list"
     hx-swap="innerHTML"
+    class="px-3 py-2 border rounded-lg"
   >
     <option value="">All categories</option>
     <% availableCategories.forEach((tag) => { %>
@@ -26,6 +37,8 @@
     <button type="submit">Apply</button>
   </noscript>
 </form>
+ </div>
+</div>
 
 <div id="archive-list">
   <%- include("../partials/archive_list", { events: events }) %>
