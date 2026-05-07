@@ -173,7 +173,7 @@ class EventController implements IEventController {
       outcome,
       attendeeCount,
       capacity: event.capacity,
-      readonly: !canRsvp,
+      readonly: false,
     });
   }
 
@@ -349,6 +349,8 @@ class EventController implements IEventController {
 
       res.status(status).render("partials/list", {
         events: [],
+        session,
+        pageError: error.message,
         layout: false,
       });
       return;
@@ -356,7 +358,8 @@ class EventController implements IEventController {
 
     res.render("partials/list", {
       events: result.value,
-      session: session,
+      session,
+      pageError: null,
       layout: false,
     });
   }
@@ -411,7 +414,11 @@ class EventController implements IEventController {
  
     this.logger.info(`Event ${eventId} published by user ${ctx.userId}`);
  
-    res.redirect("/events");
+    res.status(200).render("events/partials/event_header", {
+      layout: false,
+      event: result.value,
+      session: touchAppSession(store),
+    });
   }
  
   async cancelEvent(
@@ -438,7 +445,11 @@ class EventController implements IEventController {
  
     this.logger.info(`Event ${eventId} cancelled by user ${ctx.userId}`);
  
-    res.redirect("/events");
+    res.status(200).render("events/partials/event_header", {
+      layout: false,
+      event: result.value,
+      session: touchAppSession(store),
+    });
   }
 
   async showEventDetail(

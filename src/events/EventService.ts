@@ -438,25 +438,23 @@ class EventService implements IEventService {
         return Err(UnexpectedDependencyError(saveResult.value.message));
       }
 
-      const countResult = await this.rsvps.findAllByEvent(eventId, { status: "attending" });
+      const countResult = await this.rsvps.countByEvent(eventId, { status: "attending" });
       if (countResult.ok === false) {
         return Err(UnexpectedDependencyError(countResult.value.message));
       }
-
       return Ok({
         rsvp: saveResult.value,
         outcome: "cancelled" as const,
-        attendeeCount: countResult.value.length,
-        event,               
-    });
+        attendeeCount: countResult.value,
+        event,
+      });
     }
 
-    const attendingResult = await this.rsvps.findAllByEvent(eventId, { status: "attending" });
+    const attendingResult = await this.rsvps.countByEvent(eventId, { status: "attending" });
     if (attendingResult.ok === false) {
       return Err(UnexpectedDependencyError(attendingResult.value.message));
     }
-
-    const attendeeCount = attendingResult.value.length;
+    const attendeeCount = attendingResult.value;
     const isFull = event.capacity !== null && attendeeCount >= event.capacity;
     const newStatus = isFull ? "waitlisted" : "attending";
 

@@ -1,7 +1,95 @@
-<section class="mb-5 p-6 border border-slate-200 rounded-2xl bg-gradient-to-b from-white to-slate-50 shadow-lg">
-  <h1 class="text-3xl font-bold text-slate-900 mb-1">Comments</h1>
-  <p class="text-slate-500">
-    Event <span class="font-mono text-sm text-slate-600"><%= eventId.slice(0, 8) %></span>
+<style>
+  @keyframes comment-pop-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.4rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .comment-thread-card.comment-pop {
+    animation: comment-pop-in 0.42s ease-out;
+  }
+</style>
+
+<script>
+  document.addEventListener("alpine:init", () => {
+    Alpine.data("relativeTimeslot", (iso) => ({
+      iso,
+      label: "",
+      init() {
+        const tick = () => {
+          let diffSec = Math.round((new Date(this.iso).getTime() - Date.now()) / 1000);
+          // Server clock slightly ahead of client: small positive diff looks "in the future"
+          if (diffSec > 0 && diffSec <= 120) {
+            diffSec = 0;
+          }
+          const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+          const diffMin = Math.round(diffSec / 60);
+          const diffHr = Math.round(diffSec / 3600);
+          const diffDay = Math.round(diffSec / 86400);
+          const diffWk = Math.round(diffSec / 604800);
+          const diffMo = Math.round(diffSec / 2629800);
+          // Negative value => past for Intl.RelativeTimeFormat (diffSec = comment - now)
+          if (Math.abs(diffSec) < 60) {
+            this.label = rtf.format(diffSec, "second");
+          } else if (Math.abs(diffMin) < 60) {
+            this.label = rtf.format(diffMin, "minute");
+          } else if (Math.abs(diffHr) < 24) {
+            this.label = rtf.format(diffHr, "hour");
+          } else if (Math.abs(diffDay) < 7) {
+            this.label = rtf.format(diffDay, "day");
+          } else if (Math.abs(diffWk) < 5) {
+            this.label = rtf.format(diffWk, "week");
+          } else if (Math.abs(diffMo) < 12) {
+            this.label = rtf.format(diffMo, "month");
+          } else {
+            this.label = rtf.format(Math.round(diffSec / 31557600), "year");
+          }
+        };
+        tick();
+        setInterval(() => tick(), 60000);
+      },
+    }));
+  });
+
+  let commentListSwapT = 0;
+  document.body.addEventListener("htmx:afterSwap", (evt) => {
+    const target = evt.detail && evt.detail.target;
+    if (!target || target.id !== "comment-list") return;
+    const cfg = evt.detail.requestConfig;
+    window.clearTimeout(commentListSwapT);
+    commentListSwapT = window.setTimeout(() => {
+      if (typeof Alpine !== "undefined") {
+        Alpine.initTree(target);
+      }
+      const method = (cfg && cfg.verb ? String(cfg.verb) : "").toLowerCase();
+      const path = cfg && cfg.path ? String(cfg.path) : "";
+      if (method === "post" && !path.includes("/delete")) {
+        const items = target.querySelectorAll("[data-comment-item]");
+        const last = items[items.length - 1];
+        if (last) {
+          last.classList.add("comment-pop");
+          last.addEventListener(
+            "animationend",
+            () => last.classList.remove("comment-pop"),
+            { once: true },
+          );
+        }
+      }
+    }, 0);
+  });
+</script>
+
+<section
+  class="mb-4 sm:mb-5 rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-5 shadow-lg sm:p-6"
+>
+  <h1 class="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Comments</h1>
+  <p class="mt-1 text-sm text-slate-500 sm:text-base">
+    Event
+    <span class="font-mono text-xs text-slate-600 sm:text-sm"><%= eventId.slice(0, 8) %></span>
   </p>
 </section>
 
@@ -9,35 +97,45 @@
   <%- include("../partials/error", { message: pageError }) %>
 <% } %>
 
-<section class="mb-5 p-6 border border-slate-200 rounded-2xl bg-white shadow-lg">
-  <h2 class="text-xl font-semibold mb-4">Post a Comment</h2>
-  <form
-    hx-post="/events/<%= eventId %>/comments"
-    hx-target="#comment-list"
-    hx-swap="innerHTML"
-    hx-on::after-request="if(event.detail.successful) this.reset()"
-    class="grid gap-3"
+<section class="mb-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-lg sm:mb-5 sm:p-6">
+  <h2 class="mb-4 text-lg font-semibold text-slate-900 sm:text-xl">Post a Comment</h2>
+  <div
+    id="comment-form-alpine"
+    x-data="{ count: 0, max: 500 }"
+    @reset-comment-counter.window="count = 0"
   >
-    <textarea
-      name="content"
-      rows="3"
-      required
-      maxlength="500"
-      placeholder="Write your comment..."
-      class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500 resize-none"
-    ></textarea>
-    <div>
-      <button
-        type="submit"
-        class="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium cursor-pointer hover:bg-blue-700"
-      >
-        Post Comment
-      </button>
-    </div>
-  </form>
+    <form
+      hx-post="/events/<%= eventId %>/comments"
+      hx-target="#comment-list"
+      hx-swap="innerHTML"
+      hx-on::after-request="if (event.detail.successful) { this.reset(); window.dispatchEvent(new CustomEvent('reset-comment-counter')); }"
+      class="grid gap-3"
+    >
+      <textarea
+        name="content"
+        rows="4"
+        required
+        maxlength="500"
+        placeholder="Write your comment…"
+        x-on:input="count = $event.target.value.length"
+        class="min-h-[7rem] w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm leading-relaxed text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:outline focus:outline-2 focus:outline-blue-500/25 sm:text-[15px]"
+      ></textarea>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <p class="text-sm tabular-nums text-slate-500">
+          <span x-text="count"></span> / <span x-text="max"></span> characters
+        </p>
+        <button
+          type="submit"
+          class="cursor-pointer rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+        >
+          Post Comment
+        </button>
+      </div>
+    </form>
+  </div>
 </section>
 
-<section class="p-6 border border-slate-200 rounded-2xl bg-white shadow-lg">
+<section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-lg sm:p-6">
   <div id="comment-list">
     <%- include("partials/comment-list", { comments, currentUserId, session, eventId }) %>
   </div>

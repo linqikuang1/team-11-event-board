@@ -48,6 +48,21 @@ class InMemoryRsvpRepository implements IRsvpRepository {
       return Err(UnexpectedDependencyError("Unable to list RSVPs."));
     }
   }
+
+  async countByEvent(
+    eventId: string,
+    filter?: { status?: RsvpStatus },
+  ): Promise<Result<number, EventError>> {
+    try {
+      let results = this.rsvps.filter((r) => r.eventId === eventId);
+      if (filter?.status) {
+        results = results.filter((r) => r.status === filter.status);
+      }
+      return Ok(results.length);
+    } catch {
+      return Err(UnexpectedDependencyError("Unable to count RSVPs."));
+    }
+  }
 }
 
 export function CreateInMemoryRsvpRepository(): IRsvpRepository {

@@ -81,6 +81,24 @@ class PrismaRsvpRepository implements IRsvpRepository {
       return Err(UnexpectedDependencyError(`Unable to list RSVPs: ${message}`));
     }
   }
+
+  async countByEvent(
+    eventId: string,
+    filter?: { status?: RsvpStatus },
+  ): Promise<Result<number, EventError>> {
+    try {
+      const count = await this.db.rsvp.count({
+        where: {
+          eventId,
+          ...(filter?.status ? { status: filter.status } : {}),
+        },
+      });
+      return Ok(count);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return Err(UnexpectedDependencyError(`Unable to count RSVPs: ${message}`));
+    }
+  }
 }
 
 export function CreatePrismaRsvpRepository(db: PrismaClient): IRsvpRepository {

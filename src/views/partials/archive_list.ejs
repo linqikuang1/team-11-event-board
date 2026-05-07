@@ -1,9 +1,9 @@
 <% if (!events || events.length === 0) { %>
   <p>No archived events yet.</p>
 <% } else { %>
-  <ul>
+  <ul class="space-y-4"></ul>
     <% events.forEach((event) => { %>
-      <li>
+      <li class="p-4 border rounded-2xl shadow-sm bg-white"></li>
         <strong><%= event.title %></strong><br />
         <span><%= event.location %></span><br />
         <span>Ended: <%= event.endTime %></span><br />

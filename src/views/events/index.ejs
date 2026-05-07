@@ -2,9 +2,10 @@
   <div class="flex items-center justify-between gap-4 mb-3">
     <h1 class="text-3xl font-bold text-slate-900">Upcoming Events</h1>
     <% if (session.authenticatedUser?.role === "staff" || session.authenticatedUser?.role === "admin") { %>
-      <a href="/events/create" class="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700">Create Event</a>
+      <a href="/events/create" class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition">Create Event</a>
     <% } %>
   </div>
+  <div x-data="{ q: '<%= q || "" %>' }">
   <form
     method="get"
     action="/events"
@@ -13,42 +14,90 @@
     hx-swap="innerHTML"
     hx-trigger="change, submit, keyup changed delay:400ms from:input[name='q']"
     hx-push-url="true"
+    class="rounded-2xl border border-slate-200 bg-white/90 p-3 sm:p-4"
   >
-    <div class="grid gap-3 md:grid-cols-3">
+    <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:gap-2">
+      <div class="w-full lg:flex-[2]">
+        <label for="event-search" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Search
+        </label>
       <input
+        x-model="q"
+        id="event-search"
         type="search"
         name="q"
         value="<%= q %>"
         placeholder="Search by title, description, or location"
-        class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500"
+        class="w-full rounded-xl border px-3 py-2.5 focus:outline-2 focus:outline-blue-500/20 <%= q ? 'border-blue-500 bg-blue-50/60 text-blue-900 placeholder:text-blue-500/80' : 'border-slate-300 bg-white' %>"
       />
+      </div>
 
+      <div class="w-full lg:flex-1">
+        <label for="event-category" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Category
+        </label>
       <select
+        id="event-category"
         name="category"
-        class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500"
+        class="w-full rounded-xl border px-3 py-2.5 focus:outline-2 focus:outline-blue-500/20 <%= category ? 'border-blue-500 bg-blue-50/60 text-blue-900' : 'border-slate-300 bg-white' %>"
       >
         <option value="">All categories</option>
         <% availableCategories.forEach((item) => { %>
           <option value="<%= item %>" <%= item === category ? "selected" : "" %>><%= item %></option>
         <% }) %>
       </select>
+      </div>
 
+      <div class="w-full lg:flex-1">
+        <label for="event-timeframe" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Timeframe
+        </label>
       <select
+        id="event-timeframe"
         name="timeframe"
-        class="w-full px-3 py-2.5 border border-slate-300 rounded-xl bg-white focus:outline-2 focus:outline-blue-500/20 focus:border-blue-500"
+        class="w-full rounded-xl border px-3 py-2.5 focus:outline-2 focus:outline-blue-500/20 <%= timeframe !== 'all' ? 'border-blue-500 bg-blue-50/60 text-blue-900' : 'border-slate-300 bg-white' %>"
       >
         <option value="all" <%= timeframe === "all" ? "selected" : "" %>>All upcoming</option>
         <option value="week" <%= timeframe === "week" ? "selected" : "" %>>This week</option>
         <option value="weekend" <%= timeframe === "weekend" ? "selected" : "" %>>This weekend</option>
       </select>
+      </div>
+
+      <div class="flex w-full flex-wrap items-center gap-2 pt-1 lg:w-auto lg:pt-0">
+        <button
+  x-show="q.length > 0"
+  x-on:click="q=''"
+  type="button"
+  class="px-3 py-2 bg-slate-200 rounded-lg"
+>
+  Clear
+</button>
+      <% if (session.authenticatedUser?.role === "user") { %>
+        <a
+          href="/saved"
+          class="inline-flex items-center justify-center rounded-lg border border-slate-300 px-4 py-2.5 font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Saved 📌
+        </a>
+      <% } %>
+      <a
+        href="/events"
+        class="inline-flex items-center justify-center rounded-lg border border-slate-300 px-4 py-2.5 font-medium text-slate-700 hover:bg-slate-50"
+      >
+        Clear Filters
+      </a>
+      <noscript>
+        <a
+          href="/events"
+          class="inline-flex items-center justify-center rounded-lg border border-slate-300 px-4 py-2.5 font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Clear Filters
+        </a>
+      </noscript>
+      </div>
     </div>
-    <button
-      type="submit"
-      class="mt-3 px-4 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700"
-    >
-      Apply Filters
-    </button>
-  </form>
+    </form>
+  </div>
 </section>
 
 <% if (typeof successMessage !== 'undefined' && successMessage) { %>
@@ -62,38 +111,53 @@
 <% } %>
 
 <% if (typeof myDrafts !== 'undefined' && myDrafts.length > 0) { %>
-  <section class="mb-5 p-6 border border-yellow-200 rounded-2xl bg-yellow-50 shadow-lg">
-    <h2 class="text-xl font-bold text-yellow-800 mb-4">My Drafts</h2>
-    <ul class="space-y-3">
-      <% myDrafts.forEach((draft) => { %>
-        <li class="p-4 border border-yellow-200 rounded-xl bg-white shadow-sm flex items-center justify-between">
-          <div>
-            <a href="/events/<%= draft.id %>" class="text-lg font-semibold text-blue-700 hover:underline">
-              <%= draft.title %>
-            </a><br />
-            <span class="text-sm text-slate-500"><%= draft.location %></span><br />
-            <span class="text-sm text-slate-500"><%= draft.startTime %></span>
-          </div>
-          <div class="flex gap-2">
-            <a
-              href="/events/<%= draft.id %>/edit"
-              class="px-4 py-2 text-sm rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium"
-            >Edit</a>
-            <form method="post" action="/events/<%= draft.id %>/publish">
-              <button
-                type="submit"
-                class="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium"
-              >Publish</button>
-            </form>
-          </div>
-        </li>
-      <% }) %>
-    </ul>
+  <section class="mb-5 border border-yellow-200 rounded-2xl shadow-lg overflow-hidden">
+    <div class="h-1.5 w-full bg-yellow-400"></div>
+    <div class="p-6 bg-yellow-50">
+      <h2 class="text-xl font-bold text-yellow-800 mb-4">📝 My Drafts</h2>
+      <ul class="space-y-3">
+        <% myDrafts.forEach((draft) => { %>
+          <li class="border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition bg-white">
+            <div class="h-1 w-full bg-yellow-300"></div>
+            <div class="p-4 flex items-center justify-between gap-4">
+              <div>
+                <a href="/events/<%= draft.id %>" class="text-lg font-semibold text-blue-700 hover:underline">
+                  <%= draft.title %>
+                </a>
+                <div class="flex flex-wrap items-center gap-2 mt-1">
+                  <span class="text-sm text-slate-500">📍 <%= draft.location %></span>
+                  <span class="text-slate-300">·</span>
+                  <span class="text-sm text-slate-500">🕐 <%= new Date(draft.startTime).toLocaleString() %></span>
+                </div>
+                <% if (draft.tags && draft.tags.length > 0) { %>
+                  <div class="flex flex-wrap gap-1.5 mt-2">
+                    <% draft.tags.forEach(tag => { %>
+                      <span class="px-2 py-0.5 bg-blue-50 text-blue-600 text-xs font-medium rounded-full border border-blue-100"><%= tag %></span>
+                    <% }) %>
+                  </div>
+                <% } %>
+              </div>
+              <div class="flex gap-2 flex-shrink-0">
+                
+                <a  href="/events/<%= draft.id %>/edit"
+                  class="px-4 py-2 text-sm rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 font-medium"
+                >✏️ Edit</a>
+                <form method="post" action="/events/<%= draft.id %>/publish">
+                  <button
+                    type="submit"
+                    class="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium"
+                  >🚀 Publish</button>
+                </form>
+              </div>
+            </div>
+          </li>
+        <% }) %>
+      </ul>
+    </div>
   </section>
 <% } %>
-
 <section class="max-w-3xl p-6 border border-slate-200 rounded-2xl bg-white shadow-lg">
-  <div id="event-list">
+  <div id="event-list" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
     <%- include("../partials/list", { events: events, session: session }) %>
   </div>
 </section>
