@@ -1,227 +1,238 @@
-# Project Starter
+# Team 11 Event Board _(team-11-event-board)_
 
-A starter application for team projects that provides authentication, role-based authorization, HTTPS, and session management out of the box. Your team can focus on building project features instead of reimplementing auth infrastructure.
+A server-rendered web app for posting, browsing, and RSVPing to events, with role-based access.
 
-## Quick Start
+Team 11 Event Board lets staff create and publish events, and lets any signed-in user search events, RSVP, save events for later, and comment. It has three roles (admin, staff, and user), HTTPS in development, and server-side sessions. It is built with TypeScript, Express 5, EJS, HTMX, Alpine.js, Tailwind CSS, and Prisma with SQLite. The project began from a team starter template that provided authentication, authorization, HTTPS, and session management, and the event, comment, and saved-event features were built on top of it by Team 11.
+
+## Table of Contents
+
+- [Security](#security)
+- [Background](#background)
+- [Install](#install)
+- [Usage](#usage)
+- [Features](#features)
+- [Project Structure](#project-structure)
+- [Testing](#testing)
+- [API](#api)
+- [Maintainers](#maintainers)
+- [Thanks](#thanks)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Security
+
+- **Self-signed certificates.** The certificates in `certs/` are for local development only. Browsers will show a warning, which is expected locally. Use real certificates in production.
+- **Session secret.** The default `SESSION_SECRET` is a demo value. Set your own secret outside local development.
+- **Demo accounts.** The demo users share a known password (`password123`) and are stored in memory. Do not use them in production.
+- **Passwords.** Passwords are hashed with Node.js scrypt and compared in a timing-safe way. Passwords are never stored in the session.
+
+## Background
+
+Campus and community groups often announce events in scattered places, which makes them hard to find and hard to manage. This project gathers events into one board where organizers can publish and manage them and attendees can find, RSVP to, save, and discuss them.
+
+The app follows a layered design. Each feature has a model, a repository, a service, and a controller. Services return a `Result<T, E>` value instead of throwing exceptions, and `composition.ts` wires all dependencies together in one place so implementations are easy to swap and test.
+
+The authentication and session layer came from the team starter template. The event, comment, and saved-event features are Team 11's work.
+
+## Install
 
 ```bash
-# 1. Install dependencies
+git clone https://github.com/linqikuang1/team-11-event-board.git
+cd team-11-event-board
 npm install
-
-# 2. Environment (required for Prisma CLI: generate, migrate)
-#    Copy and edit, or set DATABASE_URL yourself.
 cp .env.example .env
-
-# 3. Generate the Prisma client
 npx prisma generate
+npx prisma migrate dev
+```
 
-# 4. Build and run
+On Windows PowerShell, use `Copy-Item .env.example .env` in place of `cp`.
+
+### Dependencies
+
+- [Node.js](https://nodejs.org) and npm. Use a current LTS release.
+- No separate database server is needed. The app uses SQLite through Prisma, and `npx prisma migrate dev` creates the database file and tables. If you skip this step, pages that list events fail with the error "The table `main.Event` does not exist."
+
+### Environment variables
+
+Set these in `.env`. All are optional except `DATABASE_URL`, which Prisma commands need.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `HTTPS_PORT` | `3443` | HTTPS port |
+| `HTTP_REDIRECT_PORT` | `3000` | HTTP-to-HTTPS redirect port |
+| `HTTPS_KEY_PATH` | `./certs/localhost-key.pem` | TLS private key |
+| `HTTPS_CERT_PATH` | `./certs/localhost-cert.pem` | TLS certificate |
+| `DATABASE_URL` | `file:./prisma/dev.db` | SQLite database path |
+| `SESSION_SECRET` | `project-starter-demo-secret` | Session signing secret |
+
+## Usage
+
+```bash
 npm run dev
 ```
 
-The app starts on **https://localhost:3443**. Your browser will show a certificate warning because the included certs are self-signed, this is expected for local development. Accept the warning to proceed.
+Open <https://localhost:3443> and accept the browser's certificate warning. Requests to `http://localhost:3000` redirect to HTTPS.
 
-An HTTP server on port 3000 automatically redirects to HTTPS.
+Sign in with a demo account. The password for all of them is `password123`.
 
-## Demo Users
+| Email | Role | What they can do |
+| --- | --- | --- |
+| `admin@app.test` | admin | Everything staff can do, plus create and delete users at `/admin/users` |
+| `staff@app.test` | staff | Create, edit, publish, cancel, and delete events, and view attendee lists |
+| `user@app.test` | user | Browse, search, and filter events, RSVP, save events, and comment |
 
-Three demo accounts are available out of the box. All passwords are `password123`.
+Demo users are stored in memory and reset whenever the server restarts. After signing in, you land on the events page.
 
-| Email            | Display Name | Role    |
-| ---------------- | ------------ | ------- |
-| `admin@app.test` | Avery Admin  | `admin` |
-| `staff@app.test` | Sam Staff    | `staff` |
-| `user@app.test`  | Una User     | `user`  |
+### Common tasks
 
-These users are stored in memory with pre-hashed passwords (scrypt). They reset every time the server restarts.
+- **Find events:** open Events, then use the search box and the category and timeframe filters.
+- **RSVP:** open an event and click RSVP. Click again to cancel.
+- **Save an event:** click Save on an event, then view your list under Saved.
+- **Comment:** open an event and add a comment.
+- **Create an event (staff or admin):** open Create Event and enter a title, description, location, start time, and end time. Capacity and tags (comma-separated) are optional.
+- **Publish or cancel an event (staff or admin):** new events start as drafts. Publish one to make it visible, and cancel a published event if plans change.
+- **Manage users (admin):** go to `/admin/users`.
 
-## Authorization Roles
+### Scripts
 
-The starter enforces three roles with different permission levels:
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Build TypeScript and start the HTTPS server |
+| `npm run build` | Compile TypeScript to `dist/` |
+| `npm test` | Run the Jest test suite |
+| `npm run test:watch` | Run tests in watch mode |
+| `npx prisma migrate dev` | Create and apply a database migration |
 
-- **Admin** -> Full access. Can manage users (create/delete) via `/admin/users`.
-- **Staff** -> Authenticated access to all non-admin pages.
-- **User** -> Authenticated read-only access.
+## Features
 
-Use the `requireAuthenticated` and `requireRole` helper methods in `src/app.ts` to protect your own routes.
+- Event search with category and timeframe filters, updated in place with HTMX.
+- Event lifecycle: draft, published, and cancelled.
+- RSVP to events, with attendee lists for organizers.
+- Save events and view them on a personal Saved page.
+- Comments on events.
+- Archive of past events, filterable by category.
+- Admin user management.
+- Role-based access for admin, staff, and user.
 
 ## Project Structure
 
 ```
-project-starter/
+team-11-event-board/
 ├── src/
-│   ├── auth/                    # Authentication & authorization (do not modify)
-│   │   ├── AdminUserService.ts  #   Admin user management (create/delete users)
-│   │   ├── AuthController.ts    #   HTTP handlers for login/logout/user management
-│   │   ├── AuthService.ts       #   Core authentication logic (verify credentials)
-│   │   ├── InMemoryUserRepository.ts  # Demo user storage with hashed passwords
-│   │   ├── PasswordHasher.ts    #   Scrypt password hashing with timing-safe comparison
-│   │   ├── User.ts              #   User model types and role definitions
-│   │   ├── UserRepository.ts    #   User storage interface
-│   │   └── errors.ts            #   Auth-specific error types
-│   ├── lib/
-│   │   └── result.ts            # Generic Result<T, E> type for error handling
-│   ├── service/
-│   │   └── LoggingService.ts    # Simple timestamped logging
-│   ├── session/
-│   │   └── AppSession.ts        # Session management (browser tracking + auth state)
-│   ├── views/
-│   │   ├── auth/
-│   │   │   ├── login.ejs        # Login page
-│   │   │   ├── users.ejs        # Admin user management page
-│   │   │   └── partials/error.ejs
-│   │   ├── layouts/
-│   │   │   └── base.ejs         # Master layout with navigation bar
-│   │   ├── partials/
-│   │   │   └── error.ejs        # Shared error banner partial
-│   │   └── home.ejs             # Placeholder home page (replace with your own)
-│   ├── static/                  # Static assets directory (create to add your own)
-│   ├── app.ts                   # Express app setup, middleware, and route registration
-│   ├── composition.ts           # Dependency injection / wiring
-│   ├── contracts.ts             # IApp and IServer interfaces
-│   └── server.ts                # HTTPS server startup with HTTP redirect
-├── test/
-│   ├── auth/
-│   │   ├── AuthService.test.ts  # Authentication tests
-│   │   └── AdminUserService.test.ts  # Admin user management tests
-│   └── smoke.test.ts            # Basic Result type tests
-├── prisma/
-│   └── schema.prisma            # Database schema (add your models here)
-├── certs/                       # Self-signed HTTPS certificates for development
-├── .env                         # Environment variables
-├── package.json
-├── tsconfig.json
-└── jest.config.cjs
+│   ├── auth/          # Authentication, authorization, and user management
+│   ├── events/        # Event model, repository, service, and controller
+│   ├── comments/      # Comment feature
+│   ├── saved/         # Saved-event feature
+│   ├── lib/           # Shared helpers, including the Result type
+│   ├── service/       # Logging
+│   ├── session/       # Session management
+│   ├── views/         # EJS templates and layouts
+│   ├── static/        # Static assets
+│   ├── app.ts         # Express setup, middleware, and routes
+│   ├── composition.ts # Dependency wiring
+│   └── server.ts      # HTTPS server with HTTP redirect
+├── test/              # Jest tests
+├── prisma/            # Database schema and migrations
+├── certs/             # Self-signed development certificates
+└── package.json
 ```
 
-## Where to Start Building
-
-### 1. Define Your Data Model
-
-Edit `prisma/schema.prisma` to add your project's database tables, then run:
+## Testing
 
 ```bash
-npx prisma migrate dev --name your-migration-name
+npm test
 ```
 
-### 2. Create Your Service and Repository Layers
+Tests use Jest with ts-jest and supertest.
 
-Follow the existing patterns in `src/auth/` as a reference:
+## API
 
-- **Model** -> Define TypeScript types for your data (like `src/auth/User.ts`).
-- **Repository** -> Create a storage interface and implementation (like `UserRepository.ts` and `InMemoryUserRepository.ts`). You can start with an in-memory implementation and swap to Prisma later.
-- **Service** -> Write business logic that validates input and delegates to the repository (like `AuthService.ts`). Use the `Result<T, E>` type from `src/lib/result.ts` for error handling.
+The app is server-rendered, so most routes return HTML pages. Some routes return small HTML fragments for HTMX, which updates part of a page without a full reload. Access levels are Public, Authenticated (any signed-in user), or staff and admin.
 
-### 3. Create Controllers
+### General and authentication
 
-Build HTTP handlers that translate between web requests and your service layer (like `AuthController.ts`). Controllers handle request parsing, call services, and render views.
+| Method | Route | Access | Description |
+| --- | --- | --- | --- |
+| GET | `/` | Public | Redirects to `/home` if signed in, otherwise to `/login` |
+| GET | `/home` | Authenticated | Redirects to `/events` |
+| GET | `/login` | Public | Login page, or redirects to `/home` if already signed in |
+| POST | `/login` | Public | Submit `email` and `password` |
+| POST | `/logout` | Public | End the session |
 
-### 4. Add Routes
+### Admin
 
-Register your routes in `src/app.ts` inside the `registerRoutes` method. Use the built-in auth helpers:
+| Method | Route | Access | Description |
+| --- | --- | --- | --- |
+| GET | `/admin/users` | admin | List users |
+| POST | `/admin/users` | admin | Create a user from `email`, `displayName`, `password`, and `role` (defaults to `user`) |
+| POST | `/admin/users/:id/delete` | admin | Delete a user |
 
-```typescript
-// Require any authenticated user
-this.app.get(
-  '/your-page',
-  asyncHandler(async (req, res) => {
-    if (!this.requireAuthenticated(req, res)) return
-    // ... your handler logic
-  })
-)
+### Browsing events
 
-// Require specific roles
-this.app.post(
-  '/admin-action',
-  asyncHandler(async (req, res) => {
-    if (
-      !this.requireRole(
-        req,
-        res,
-        ['admin', 'staff'],
-        'Insufficient permissions.'
-      )
-    )
-      return
-    // ... your handler logic
-  })
-)
-```
+| Method | Route | Access | Description |
+| --- | --- | --- | --- |
+| GET | `/events` | Authenticated | Events page. Query parameters: `q`, `category`, `timeframe` (default `all`) |
+| GET | `/events/search` | Authenticated | Filtered results as an HTMX fragment |
+| GET | `/events/archive` | Authenticated | Archive page. Query parameter: `category` |
+| GET | `/events/archive/filter` | Authenticated | Filtered archive as an HTMX fragment |
+| GET | `/events/:id` | Authenticated | Event detail page |
 
-### 5. Create Views
+### Attendee actions
 
-Add EJS templates in `src/views/`. The master layout (`layouts/base.ejs`) provides the navigation bar and page shell automatically. Your views just need to provide the page content.
+| Method | Route | Access | Description |
+| --- | --- | --- | --- |
+| POST | `/events/:id/rsvp` | Authenticated | Toggle your RSVP |
+| POST | `/events/:id/save` | Authenticated | Toggle saving the event |
+| GET | `/saved` | Authenticated | List your saved events |
 
-### 6. Wire It Together
+### Organizer actions
 
-Update `src/composition.ts` to instantiate and inject your new services, repositories, and controllers. Pass your controller(s) to `CreateApp`.
+| Method | Route | Access | Description |
+| --- | --- | --- | --- |
+| GET | `/events/create` | staff, admin | Create form |
+| POST | `/events/create` | staff, admin | Create an event from `title`, `description`, `location`, `startTime`, `endTime`, and optional `capacity` and `tags` (comma-separated) |
+| GET | `/events/:id/edit` | staff, admin | Edit form |
+| POST | `/events/:id/edit` | staff, admin | Update an event using the same fields as create |
+| POST | `/events/:id/publish` | staff, admin | Move an event from draft to published |
+| POST | `/events/:id/cancel` | staff, admin | Move a published event to cancelled |
+| POST | `/events/:id/delete` | staff, admin | Delete an event |
+| GET | `/events/:id/attendees` | staff, admin | Attendee list (also available as an HTMX fragment) |
 
-## Available Scripts
+Staff can only publish and cancel their own events, while admins can act on any event. The service layer enforces this.
 
-| Script                   | Description                                   |
-| ------------------------ | --------------------------------------------- |
-| `npm run dev`            | Build TypeScript and start the HTTPS server   |
-| `npm run build`          | Compile TypeScript to `dist/`                 |
-| `npm test`               | Run the test suite with Jest                  |
-| `npm run test:watch`     | Run tests in watch mode                       |
-| `npx prisma generate`    | Regenerate Prisma client after schema changes |
-| `npx prisma migrate dev` | Create and apply a database migration         |
+### Comments
 
-## Tech Stack
+| Method | Route | Access | Description |
+| --- | --- | --- | --- |
+| GET | `/events/:id/comments` | Authenticated | List comments for an event |
+| POST | `/events/:id/comments` | Authenticated | Post a comment using the `content` field |
+| POST | `/events/:id/comments/:commentId/delete` | Authenticated | Delete a comment |
 
-- **Runtime**: Node.js with TypeScript
-- **Framework**: Express 5
-- **Templating**: EJS with express-ejs-layouts
-- **CSS**: Tailwind CSS v4 (via CDN)
-- **Frontend Interactivity**: Alpine.js 3 + HTMX 2.0
-- **Database**: SQLite via Prisma ORM
-- **Password Hashing**: Node.js scrypt (timing-safe)
-- **Sessions**: express-session (in-memory, server-side)
-- **Transport Security**: HTTPS with self-signed certificates
-- **Testing**: Jest with ts-jest and supertest
+### Errors
 
-### Tailwind CSS
+- **Not signed in:** page requests redirect to `/login`. Form posts and HTMX requests receive a 401 error message.
+- **Wrong role:** a 403 error message explains the restriction.
+- **Unexpected failure:** a 500 error message is shown.
 
-Tailwind CSS v4 is loaded via the [Play CDN](https://tailwindcss.com/docs/installation/play-cdn), which means no build step is required. Just use Tailwind utility classes directly in your EJS templates. The CDN approach is ideal for development and prototyping.
+## Maintainers
 
-### Alpine.js
+- [@linqikuang1](https://github.com/linqikuang1)
+- [@arioyu-0001] (https://github.com/arioyu-0001)
+- [@GUIdance0] (https://github.com/GUIdance0)
+- [@Praptipatel101] (https://github.com/Praptipatel101)
+- [@Soumith-Madadi] (https://github.com/Soumith-Madadi)
 
-[Alpine.js](https://alpinejs.dev/) is included via CDN for lightweight client-side interactivity. Use directives like `x-data`, `x-show`, `x-bind`, `@click`, and `x-transition` directly in your HTML. The home page includes a working demo. Alpine.js works great alongside HTMX, use Alpine for client-side UI state and HTMX for server-driven updates.
+## Thanks
 
-## Architecture Concepts
+- The team starter template, which provided the authentication, session, and HTTPS foundation.
+- The authors of Express, EJS, HTMX, Alpine.js, Tailwind CSS, and Prisma.
 
-### Result Type
+## Contributing
 
-All services use a functional `Result<T, E>` type instead of throwing exceptions. Every service method returns either `Ok(value)` for success or `Err(error)` for failure. This keeps error handling explicit and composable.
+Questions and bug reports are welcome in the [GitHub issues](https://github.com/linqikuang1/team-11-event-board/issues).
 
-```typescript
-import { Ok, Err, type Result } from './lib/result'
+[Pull requests are accepted / This is a course project, so pull requests are limited to Team 11 members.] Please run `npm test` before submitting changes and describe what you changed and why.
 
-async function doSomething(): Promise<Result<string, MyError>> {
-  if (somethingWrong) return Err({ name: 'BadInput', message: '...' })
-  return Ok('success')
-}
-```
+## License
 
-### Dependency Injection
-
-The `composition.ts` file wires all dependencies together in one place. This makes it easy to swap implementations (e.g., in-memory storage to database-backed) and to inject test doubles in your tests.
-
-### Session Management
-
-Sessions track browser identity and authentication state. The `AppSession` module provides helper functions for reading/writing session data without touching the raw session object directly. Passwords are never stored in the session, only the authenticated user's identity and role.
-
-### HTTPS
-
-The app runs over HTTPS even in development. Self-signed certificates in `certs/` are provided for convenience. In production, use real certificates.
-
-## Environment Variables
-
-| Variable             | Default                       | Description                |
-| -------------------- | ----------------------------- | -------------------------- |
-| `HTTPS_PORT`         | `3443`                        | HTTPS listener port        |
-| `HTTP_REDIRECT_PORT` | `3000`                        | HTTP → HTTPS redirect port |
-| `HTTPS_KEY_PATH`     | `./certs/localhost-key.pem`   | Path to TLS private key    |
-| `HTTPS_CERT_PATH`    | `./certs/localhost-cert.pem`  | Path to TLS certificate    |
-| `DATABASE_URL`       | `file:./prisma/dev.db`        | SQLite database path       |
-| `SESSION_SECRET`     | `project-starter-demo-secret` | Session signing secret     |
+UNLICENSED © Team 11
