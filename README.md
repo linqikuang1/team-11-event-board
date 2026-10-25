@@ -6,8 +6,6 @@ Team 11 Event Board lets staff create and publish events, and lets any signed-in
 
 ## Table of Contents
 
-- [Security](#security)
-- [Background](#background)
 - [Install](#install)
 - [Usage](#usage)
 - [Features](#features)
@@ -15,24 +13,7 @@ Team 11 Event Board lets staff create and publish events, and lets any signed-in
 - [Testing](#testing)
 - [API](#api)
 - [Maintainers](#maintainers)
-- [Thanks](#thanks)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Security
-
-- **Self-signed certificates.** The certificates in `certs/` are for local development only. Browsers will show a warning, which is expected locally. Use real certificates in production.
-- **Session secret.** The default `SESSION_SECRET` is a demo value. Set your own secret outside local development.
-- **Demo accounts.** The demo users share a known password (`password123`) and are stored in memory. Do not use them in production.
-- **Passwords.** Passwords are hashed with Node.js scrypt and compared in a timing-safe way. Passwords are never stored in the session.
-
-## Background
-
-Campus and community groups often announce events in scattered places, which makes them hard to find and hard to manage. This project gathers events into one board where organizers can publish and manage them and attendees can find, RSVP to, save, and discuss them.
-
-The app follows a layered design. Each feature has a model, a repository, a service, and a controller. Services return a `Result<T, E>` value instead of throwing exceptions, and `composition.ts` wires all dependencies together in one place so implementations are easy to swap and test.
-
-The authentication and session layer came from the team starter template. The event, comment, and saved-event features are Team 11's work.
+- [Credits](#credits)
 
 ## Install
 
@@ -222,18 +203,7 @@ Staff can only publish and cancel their own events, while admins can act on any 
 - [@Praptipatel101] (https://github.com/Praptipatel101)
 - [@Soumith-Madadi] (https://github.com/Soumith-Madadi)
 
-## Thanks
+## Credits
 
 - The team starter template, which provided the authentication, session, and HTTPS foundation.
 - The authors of Express, EJS, HTMX, Alpine.js, Tailwind CSS, and Prisma.
-
-## Contributing
-
-Questions and bug reports are welcome in the [GitHub issues](https://github.com/linqikuang1/team-11-event-board/issues).
-
-[Pull requests are accepted / This is a course project, so pull requests are limited to Team 11 members.] Please run `npm test` before submitting changes and describe what you changed and why.
-
-## License
-
-UNLICENSED © Team 11
-
